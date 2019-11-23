@@ -4,7 +4,6 @@ Practical NLP for Survey Analysis with deepsight GmbH.
 ## Project Structure
 
 <pre>
-.
 |-- src
 |-- data
     |-- raw
