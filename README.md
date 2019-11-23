@@ -12,6 +12,5 @@ Practical NLP for Survey Analysis with deepsight GmbH.
 |-- notebook
     |-- eda (Exploratory Data Analysis)
     |-- poc (Proof-of-Concept)
-    |-- modeling
     |-- evaluation
 </pre>
