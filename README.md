@@ -1,7 +1,7 @@
 # pnlp_study_project
 Practical NLP for Survey Analysis with deepsight GmbH.
 
-## Project structure
+## Project Structure
 
 <pre>
 .
