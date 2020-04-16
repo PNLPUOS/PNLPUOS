@@ -2,6 +2,7 @@
 from topic_modeling import model_topics
 from utilities import preprocessing, evaluation
 from sentiment_classifier import *
+from credentials import username, password
 
 # sacred, misc
 from sacred import Experiment
@@ -10,8 +11,6 @@ import pandas as pd
 
 
 ex = Experiment()
-username = ''
-password = ''
 db_name = 'pnlp'
 
 # ex.observers.append(MongoObserver(url=f'mongodb+srv://{username}:{password}@cluster0-8ejtu.azure.mongodb.net/{db_name}?retryWrites=true&w=majority',
