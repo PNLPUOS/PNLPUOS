@@ -4,11 +4,12 @@ Practical NLP for Survey Analysis with deepsight GmbH.
 ## Project Structure
 
 <pre>
-|-- src
 |-- data
     |-- raw
     |-- processed
 |-- notebooks
     |-- sentiment_analysis
     |-- topic_clustering
+|-- src
+    |-- sentiment_classifier
 </pre>
