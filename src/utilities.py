@@ -26,7 +26,7 @@ import re
 
 stopwordList = stopwords.words('english')
 
-# Apostrophe Dictionary
+# Apostrophe Dictionary and if have more words in mind, please add it in the bottom
 apostrophe = {
     "aren't" : "are not",
     "can't" : "cannot",
@@ -90,6 +90,7 @@ apostrophe = {
     "'re": "are"
 }
 
+#Short words dictionary and if have more words in mind, please add it in the bottom
 short_words = {
 "121": "one to one",
 "a/s/l": "age, sex, location",
@@ -185,6 +186,7 @@ short_words = {
 }
 
 def apos_short_dict(text, dictionary):
+    """Consolidate apostrophies."""
     for word in text.split():
         if word.lower() in dictionary:
             if word.lower() in text.split():
@@ -192,23 +194,43 @@ def apos_short_dict(text, dictionary):
     return text
 
 def remove_html(txt):
+    """Remove html."""
     txt = BeautifulSoup(txt, 'lxml')
     return txt.get_text()
 
 def remove_punctuation(surveyText):
+    """Remove any punctuation."""
     return "".join([i for i in surveyText if i not in string.punctuation])
 
 def remove_stopwords(surveyText):
+    """Remove stop words."""
     return [w for w in surveyText if w not in stopwordList]
 
 def word_lemmatizer(surveyText):
+    """Lemmatize tokens."""
     lemmatizer = WordNetLemmatizer()
     w_tokenizer = WhitespaceTokenizer()
     return [lemmatizer.lemmatize(w) for w in w_tokenizer.tokenize(surveyText)]
 
 def word_stemmer(surveyText):
+    """Stem words."""
     stemmer = PorterStemmer()
     return [stemmer.stem(i) for i in surveyText]
+
+'''
+    Control the parameter by putting value of TRUE or FALSE according to requirements.
+    Args : txt - Provided text for preprocessing
+            punctuation - Remove all punctuation, Initially value = False
+            tokenize - Splitting long text into smaller lines
+            stopwords - Remove such words which does not have much meaning to a line of text
+            correct_apos - Remove apostrophe
+            shortwords - Convert any short word to full meaningfull word
+            specialCharacter - Replace all specialCharacter
+            numbers - Remove numbers
+            singleChar - Removing words whom length is one
+            lematization - Lematize text
+            stemming - Stemming any text
+'''
 
 def preprocessing(txt, punctuation= False, tokenize= False, stopwords= False, correct_apos= False,
                   shortWords= False, specialCharacter= False, numbers= False, singleChar= False,

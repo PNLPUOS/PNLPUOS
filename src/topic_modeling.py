@@ -21,6 +21,10 @@ import _pickle
 
 
 def get_fasttext_embeddings(data):
+    """
+    Get embeddings from fastext English model.
+    - param data: pd dataframe
+    """
     # Load FastText common crawl model.
     model = fasttext.load_model('crawl-300d-2M-subword.bin')
     # Get embeddings for each word for each comment.
@@ -28,16 +32,30 @@ def get_fasttext_embeddings(data):
 
 
 def get_word2vec_embeddings(data):
+    """
+    Get embeddings from word2vec GoogleNews model.
+    - param data: pd dataframe
+    """
     pass
 
 
 def get_bert_embeddings(data):
+    """
+    Get embeddings from Bert English model.
+    - param data: pd dataframe
+    """
     pass
 
 
 def get_cluster_ids(clustering_data, cluster_algorithm):
+    """
+    Run clustering algorithm on comment mean embeddings.
+    - param clustering_data: list of np arrays (mean word embeddings)
+    - param cluster_algorithm: str (type of cluster algorithm)
+    """
     print(f'Running clustering algorithm: {cluster_algorithm} ...')
     if cluster_algorithm == 'hdbscan':
+        # Instantiate the hdbscan clusterer.
         clusterer = hdbscan.HDBSCAN(algorithm='best',
                             alpha=1.0,
                             approx_min_span_tree=True,
@@ -48,6 +66,7 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
                             min_samples=None,
                             p=None)
 
+        # Fit the clusterer to the data.
         clusterer.fit(clustering_data)
         return clusterer.labels_
 
@@ -59,6 +78,15 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
 
 
 def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers):
+    """
+    Perform cluster topic modeling using comment mean embeddings.
+    - param data: pd dataframe (preprocessed data)
+    - param embeddings: str (type of word embeddings)
+    - param cluster_algorithm (type of cluster algorithm)
+    - param normalization: bool (perform normalization y/n)
+    - param dim_reduction: bool (perform dimensionality reduction y/n)
+    - param outliers: float (degree of expected dataset contamination)
+    """
     # Drop empty values.
     data = data[data['comment'].map(lambda x: len(x) > 0)]
 
@@ -66,9 +94,11 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     # Load embeddings if already calculated.
         print('Loading embeddings ...')
         with open("_mean_embeddings", "rb") as fp:
+            # Export to file.
             data['embedding'] = _pickle.load(fp)
 
     except FileNotFoundError as e:
+        # Compute embeddings if not calculated.
         print(f'Getting embeddings: {embeddings} ...\n')
         if embeddings == 'fasttext':
             data['embeddings'] = get_fasttext_embeddings(data)
@@ -95,6 +125,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     # Apply additional preprocessing.
     clustering_data = np.array(data['embedding'].tolist())
     if normalization:
+        # Normalize values between 1 and 0.
         clustering_data = MinMaxScaler(feature_range=[0, 1]).fit_transform(clustering_data)
 
     if dim_reduction:
@@ -104,7 +135,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
         reducer = umap.UMAP(random_state=42, min_dist=0.0, spread=5, n_neighbors=19)
         clustering_data = reducer.fit(clustering_data).embedding_
-        # Update the dataset with the reduced data.
+        # Update the dataset with the reduced data for later visualization.
         data['PC1'] = [item[0] for item in clustering_data]
         data['PC2'] = [item[1] for item in clustering_data]
 
@@ -116,6 +147,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         data = data[outlier_scores == 1]
 
     cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
+    # Append the cluster ids to the dataframe.
     data['cluster'] = cluster_ids
     n_clusters = data['cluster'].nunique()
     print(f'Found {n_clusters} clusters.')
