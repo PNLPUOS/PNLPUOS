@@ -14,3 +14,4 @@ src/sentiment_classifier/__pycache__/
 src/_mean_embeddings
 src/*.csv
 src/*.png
+src/credentials.py
