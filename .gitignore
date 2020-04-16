@@ -9,4 +9,4 @@ env.bak/
 venv.bak/
 .idea/
 .bin
-src/__pycache/
+src/__pycache__/
