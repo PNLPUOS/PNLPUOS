@@ -1,7 +1,7 @@
 # pnlp
 from topic_modeling import model_topics
 from utilities import preprocessing, evaluation
-# import sentiment
+from sentiment_classifier import *
 
 # sacred, misc
 from sacred import Experiment
@@ -10,17 +10,17 @@ import pandas as pd
 
 
 ex = Experiment()
-username = 'christian'
-password = 'ds15_233'
+username = ''
+password = ''
 db_name = 'pnlp'
 
-ex.observers.append(MongoObserver(url=f'mongodb+srv://{username}:{password}@cluster0-8ejtu.azure.mongodb.net/{db_name}?retryWrites=true&w=majority',
-                                  db_name=f'{db_name}'))
+# ex.observers.append(MongoObserver(url=f'mongodb+srv://{username}:{password}@cluster0-8ejtu.azure.mongodb.net/{db_name}?retryWrites=true&w=majority',
+#                                   db_name=f'{db_name}'))
 
 @ex.config
 def config():
     experimenter = 'Christian'
-    data_path = 'pnlp_data_en.csv'
+    data_path = '../data/pnlp_data_en.csv'
     data_language = 'english'
     preprocessing_param = {
 
