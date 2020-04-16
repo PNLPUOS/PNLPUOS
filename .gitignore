@@ -10,3 +10,4 @@ venv.bak/
 .idea/
 .bin
 src/__pycache__/
+src/sentiment_classifier/__pycache__/
