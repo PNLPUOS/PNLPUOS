@@ -20,7 +20,7 @@ url = f'mongodb+srv://{username}:{password}@cluster0-8ejtu.azure.mongodb.net/{db
 # Configure the experiment parameters. These will be logged by sacred.
 @ex.config
 def config():
-    experimenter = 'Christian'
+    experimenter = ''
     data_path = '../data/pnlp_data_en.csv'
     data_language = 'english'
     preprocessing_param = {
