@@ -336,6 +336,9 @@ def evaluation(data, keywords, labels):
         cluster_info.append(cluster_dict)
 
     pd.DataFrame(cluster_info).to_csv(clusters_path)
-    export_graph(data, graph_path)
+    try:
+        export_graph(data, graph_path)
+    except KeyError as e:
+        print('Unable to export graph: no dimensionality reduction.')
 
     return data_path, clusters_path, graph_path

@@ -2,8 +2,7 @@
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import LocalOutlierFactor
-# from sklearn.metrics import silhouette_samples, silhouette_score
-# from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering
 
 # clustering
 import fasttext
@@ -71,7 +70,18 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
         return clusterer.labels_
 
     elif cluster_algorithm == 'agglomerative':
-        pass
+        # Instantiate the agglomerative clusterer.
+        clusterer = AgglomerativeClustering(n_clusters=None,
+                            affinity='cosine',
+                            memory=None,
+                            connectivity=None,
+                            compute_full_tree='auto',
+                            linkage='single',
+                            distance_threshold=0.55)
+
+        # Fit the clusterer to the data.
+        clusterer.fit(clustering_data)
+        return clusterer.labels_
 
     elif cluster_algorithm == 'kmeans':
         pass
@@ -131,9 +141,8 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     if dim_reduction:
         # Reduce dimensions for performance while maintaining majority of variance.
         clustering_data = PCA(n_components=150).fit_transform(clustering_data)
-
         # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
-        reducer = umap.UMAP(random_state=42, min_dist=0.0, spread=5, n_neighbors=19)
+        reducer = umap.UMAP(metric='cosine', random_state=42, min_dist=0.0, spread=5, n_neighbors=19)
         clustering_data = reducer.fit(clustering_data).embedding_
         # Update the dataset with the reduced data for later visualization.
         data['PC1'] = [item[0] for item in clustering_data]
