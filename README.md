@@ -19,7 +19,7 @@ Practical NLP for Survey Analysis with deepsight GmbH.
 ### Usage
 1. Clone the repository.
 2. Navigate to the repository directory.
-3. Install dependencies. (pip install -r requirements.txt)
+3. Install dependencies. (pip install -r requirements.txt) Note: OS X users require a compiler with good C++11 support per the [FastText documentation](https://fasttext.cc/docs/en/support.html). Information on how to install one of the available compilers can be found [here](https://www.ics.uci.edu/~pattis/common/handouts/macclion/clang.html).
 4. Obtain dataset available on slack. Place in 'data' directory.  
 5. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'src'.		
 6. Navigate to src and test run the main script. (python main.py)
@@ -42,6 +42,7 @@ Next, use the terminal to install Omniboard. (npm install -g omniboard).
 Run Omniboard (npx omniboard –mu url) You must replace 'url' with the database server url. The easiest way to obtain this is to run the main.py and copy-paste the output url into the terminal. If you receive no errors Omniboard should be running. 
 
 To view the board and interact with the results, navigate to localhost:9000 in your browser. From Omniboard you can adjust the shown columns and other settings via the options menu at the top right of the dashboard.
+
 ![Image unavailable.](https://raw.githubusercontent.com/vivekratnavel/omniboard/master/docs/assets/screenshots/table.png)
 
 Further information on setting up Omniboard can be found [here](https://vivekratnavel.github.io/omniboard/#/quick-start).
