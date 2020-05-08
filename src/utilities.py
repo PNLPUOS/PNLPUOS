@@ -306,6 +306,16 @@ def get_keywords(data, keywords, cluster_id):
         pass
 
 
+def get_sentences(data, cluster_id):
+    """
+    TODO:
+    - parse the comments from the 'data' dataframe (pandas cheatseet in 'data' channel)
+    - extract the most representative sentences according to the chosen method (methods in trello card)
+    - return these sentences as str in appropriate data structure, eg a list
+    """
+    return None
+
+
 def get_label(keywords, labels, cluster_id):
     if labels == 'top_5_words':
         return ' '.join(keywords[:5])
@@ -333,6 +343,7 @@ def evaluation(data, keywords, labels):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
         cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id)
+        cluster_dict['sentences'] = get_sentences(data, cluster_id)
         cluster_info.append(cluster_dict)
 
     pd.DataFrame(cluster_info).to_csv(clusters_path)
