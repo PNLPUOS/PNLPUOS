@@ -65,11 +65,12 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     #data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment"})
     # Topic modeling.
     data = model_topics(data, **topic_model_param)
+    print("Topic Modelling performed...")
     # Evaluate the results.
-    data_path, clusters_path, graph_path = evaluation(data, **evaluation_param)
+    #data_path, clusters_path, graph_path = evaluation(data, **evaluation_param)
     # Log information to sacred.
-    ex.log_scalar('n_clusters', data['cluster'].nunique())
+    #ex.log_scalar('n_clusters', data['cluster'].nunique())
     # TODO: ex.log_scalar(custom_eval_metric)
-    ex.add_artifact(clusters_path)
+    #ex.add_artifact(clusters_path)
 
-    print(f'Please visit omniboard to view the experiment results. You may need to gain access to the MongoDB.\n\tURL: {url}')
+    #print(f'Please visit omniboard to view the experiment results. You may need to gain access to the MongoDB.\n\tURL: {url}')
