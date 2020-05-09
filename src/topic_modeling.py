@@ -2,6 +2,7 @@
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.cluster import KMeans
 # from sklearn.metrics import silhouette_samples, silhouette_score
 # from sklearn.cluster import AgglomerativeClustering
 
@@ -9,6 +10,11 @@ from sklearn.neighbors import LocalOutlierFactor
 import fasttext
 import hdbscan
 import umap.umap_ as umap
+import torch
+from transformers import BertTokenizer, BertModel, BertForMaskedLM
+import spacy
+from spacy.pipeline import Sentencizer
+import time
 
 # data
 import numpy as np
@@ -38,13 +44,54 @@ def get_word2vec_embeddings(data):
     """
     pass
 
+def perform_bert_preprocessing(data):
+    """
+    Transform incoming data for using BERT framework
+    :param data:
+    :return:
+    """
+
+    #nlp = spacy.blank("en")
+    #nlp.add_pipe(nlp.create_pipe('sentencizer'))
+    print("Initialize BERT Tokenizer...")
+    #TODO: Implement token counter (padding or truncating)
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    all_tensors = list()
+    #TODO: Maybe implement the separator tokens if needed
+    for text in data:
+        ids = tokenizer.encode(text)
+        tokens = tokenizer.convert_ids_to_tokens(ids)
+        tensor = torch.tensor([ids])
+        all_tensors.append(tensor)
+
+    return all_tensors
 
 def get_bert_embeddings(data):
     """
     Get embeddings from Bert English model.
     - param data: pd dataframe
     """
-    pass
+    print("Initialize BERT Model...")
+    model = BertModel.from_pretrained('bert-base-uncased')
+    model.eval()
+    all_embeddings = list()
+
+    with torch.no_grad():
+        start = time.process_time()
+        for data_tensor in data:
+            out = model(input_ids=data_tensor)
+
+            hidden_states = out[2]
+            #sentence_embedding = torch.mean(hidden_states[-1], dim=1).squeeze()
+
+            last_four_layers = [hidden_states[i] for i in (-1, -2, -3, -4)]
+            cat_hidden_states = torch.cat(tuple(last_four_layers), dim=-1)
+            cat_sentence_embedding = torch.mean(cat_hidden_states, dim=1).squeeze()
+            all_embeddings.append(cat_sentence_embedding.numpy())
+
+    print(f"Time needed for embedding of {len(data)} samples: {time.process_time()-start})")
+    return all_embeddings
+
 
 
 def get_cluster_ids(clustering_data, cluster_algorithm):
@@ -74,7 +121,13 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
         pass
 
     elif cluster_algorithm == 'kmeans':
-        pass
+        n_clusters = 3
+        kmean = KMeans(n_clusters=n_clusters,
+                       max_iter=100,
+                       init="k-means++",
+                       n_init=1)
+        classes = kmean.fit_predict(clustering_data)
+        return classes
 
 
 def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers):
@@ -88,8 +141,8 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     - param outliers: float (degree of expected dataset contamination)
     """
     # Drop empty values.
-    data = data[data['comment'].map(lambda x: len(x) > 0)]
-
+    # data = data[data['comment'].map(lambda x: len(x) > 0)]
+    data = data[:1000]
     try:
     # Load embeddings if already calculated.
         print('Loading embeddings ...')
@@ -107,22 +160,24 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             data['embeddings'] = get_word2vec_embeddings(data)
 
         elif embeddings == 'bert':
-            data['embeddings'] = get_bert_embeddings(data)
+            torch_data = perform_bert_preprocessing(data)
+            clustering_data = get_bert_embeddings(torch_data)
+            #data['embeddings'] = get_bert_embeddings(data)
 
         else:
             print('Selected embeddings not supported.')
             exit()
 
-        # Get mean embeddings.
+        """# Get mean embeddings.
         print('Computing mean embeddings ...')
         data['embeddings'] = data['embeddings'].apply(lambda x: np.mean(x, axis=0))
         # Rename column.
         data.rename(columns={'embeddings': 'embedding'}, inplace=True)
         # Store to accelerate multiple trials.
         with open("_mean_embeddings", "wb") as fp:
-            _pickle.dump(data['embedding'].tolist(), fp)
+            _pickle.dump(data['embedding'].tolist(), fp)"""
 
-    # Apply additional preprocessing.
+    """# Apply additional preprocessing.
     clustering_data = np.array(data['embedding'].tolist())
     if normalization:
         # Normalize values between 1 and 0.
@@ -144,12 +199,17 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         outlier_scores = LocalOutlierFactor(contamination=outliers).fit_predict(clustering_data)
         clustering_data = clustering_data[outlier_scores == 1]
         # Update the dataset to reflect the removed outliers.
-        data = data[outlier_scores == 1]
+        data = data[outlier_scores == 1]"""
 
     cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
+    cluster_df = pd.DataFrame({"comment": list(data),
+                                 "class": cluster_ids})
+
+    #cluster_df.to_csv("clustered_comments.csv", sep=";")
+    #print(cluster_df)
     # Append the cluster ids to the dataframe.
-    data['cluster'] = cluster_ids
-    n_clusters = data['cluster'].nunique()
-    print(f'Found {n_clusters} clusters.')
+    #data['cluster'] = cluster_ids
+    #n_clusters = data['cluster'].nunique()
+    #print(f'Found {n_clusters} clusters.')
 
     return data

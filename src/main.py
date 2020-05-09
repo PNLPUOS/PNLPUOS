@@ -20,7 +20,7 @@ url = f'mongodb+srv://{username}:{password}@cluster0-8ejtu.azure.mongodb.net/{db
 # Configure the experiment parameters. These will be logged by sacred.
 @ex.config
 def config():
-    experimenter = 'Christian'
+    experimenter = 'Luca'
     data_path = '../data/pnlp_data_en.csv'
     data_language = 'english'
     preprocessing_param = {
@@ -39,8 +39,8 @@ def config():
     }
     topic_model_param = {
 
-            'embeddings': 'fasttext',
-            'cluster_algorithm': 'hdbscan',
+            'embeddings': 'bert',
+            'cluster_algorithm': 'kmeans',
             'normalization': True,
             'dim_reduction': True,
             'outliers': 0.15,
@@ -59,9 +59,10 @@ def config():
 @ex.automain
 def run(experimenter, data_path, data_language, preprocessing_param, topic_model_param, evaluation_param, sentiment):
     # Load raw data.
-    series = pd.read_csv(data_path, delimiter=';')['Comments']
+    #series = pd.read_csv(data_path, delimiter=';')['Comments']
+    data = pd.read_csv(data_path, delimiter=';')['Comments']
     # Preprocessing.
-    data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment"})
+    #data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment"})
     # Topic modeling.
     data = model_topics(data, **topic_model_param)
     # Evaluate the results.
