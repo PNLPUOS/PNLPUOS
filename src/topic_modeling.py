@@ -14,14 +14,20 @@ import umap.umap_ as umap
 import torch
 from transformers import BertTokenizer, BertModel, FeatureExtractionPipeline
 import spacy
+from spacy.lang.en.stop_words import STOP_WORDS
 from spacy.pipeline import Sentencizer
 import time
 import datetime
 
+# labeling
+from gensim.models import Word2Vec
+
+from gensim.models.fasttext import load_facebook_model
+
 # data
 import numpy as np
 import pandas as pd
-
+from typing import List
 # misc
 import warnings
 warnings.filterwarnings('ignore')
@@ -45,6 +51,58 @@ def get_word2vec_embeddings(data):
     - param data: pd dataframe
     """
     pass
+
+def perform_dimensionality_reduction(embeddings, dimensions=3, neighbors=5):
+    """
+    Dimensionality reduction step.
+    :param embeddings: input data frame with preprocessed text and encodings
+    :param dimensions: Dimensions of the output embeddings. Our experience is that dimension of 3 performs well.
+    :param neighbors: Number of neighbors
+    :return: data frame with column 'umap_embedding'
+    """
+    print('Running UMAP...')
+    embedding_list = embeddings
+
+    print('Number of Input texts: ', len(embedding_list), '\n')
+    # create umap object
+    umapper = umap.UMAP(
+        n_neighbors=neighbors,
+        min_dist=0.0,
+        metric='euclidean',
+        n_components=dimensions,
+    )
+
+    umap_embedding_list = umapper.fit_transform(embedding_list)
+
+    return umap_embedding_list
+
+def perform_normalization(embeddings):
+    return MinMaxScaler(feature_range=[0, 1]).fit_transform(embeddings)
+
+def perform_clustering(embeddings, min_cluster_size=30, min_samples=10):
+    """
+    Unsupervised Clustering with HDBSCAN
+    :param df: dataframe
+    :param min_cluster_size: minimum number of elements in a cluster
+    :param min_samples: minimum number of samples
+    :return: df:        dataframe with column 'cluster_label'
+            clusterer:  hdbscan object
+    """
+
+    umap_embedding_list = embeddings
+    print('Calling HDBSCAN')
+    clusterer = hdbscan.HDBSCAN(algorithm='best',
+                                alpha=1.0,
+                                metric='euclidean',
+                                min_cluster_size=min_cluster_size,
+                                min_samples=min_samples,
+                                )
+    clusterer.fit(umap_embedding_list)
+    print('Generated', clusterer.labels_.max(), 'clusters \n')
+
+    labels = clusterer.labels_.tolist()
+
+    return labels
 
 
 def perform_bert_preprocessing(data: [str]):
@@ -162,6 +220,87 @@ def get_cluster_ids(clustering_data, cluster_algorithm, n_classes: int):
         classes = kmean.fit_predict(clustering_data)
         return classes
 
+def get_cluster_representations(texts, clusters, remove_outliers = True, n_representations = 10):
+    """
+    find list of words representing each cluster
+    :param texts:
+    :param clusters:
+    :param remove_outliers:
+    :param n_representations:
+    :return:
+    """
+    representations_dict = dict()
+
+    cluster_labels = list(set(clusters))
+    if remove_outliers and -1 in cluster_labels:
+        cluster_labels.remove(-1)
+
+    tfidf = TfidfVectorizer(stop_words='english')
+    for label in cluster_labels:
+        df_text_cluster = pd.DataFrame(
+            {"text": texts,
+             "cluster": clusters}
+        )
+        text_per_label = df_text_cluster.text[df_text_cluster.cluster==label]
+        vectorized_text_per_label = tfidf.fit_transform(text_per_label)
+        feature_array = np.array(tfidf.get_feature_names())
+        tfidf_sorting = np.argsort(vectorized_text_per_label.toarray()).flatten()[::-1]
+        representations_dict[label] = list(feature_array[tfidf_sorting][:n_representations])
+
+    return representations_dict
+
+def get_word_cloud_centers(word_clouds, vocab, w2v_model):
+    """
+    get center of the word clouds to label the clusters with
+    :param word_clouds:
+    :param vocab:
+    :param w2v_model:
+    :return:
+    """
+
+    cluster_name_dict = dict()
+    for label in word_clouds:
+        print(f"Processing word cloud of the {label}. label...")
+        word_cloud = [word for word in word_clouds[label] if word in vocab]
+
+        cluster_name, _ = w2v_model.most_similar(positive=word_cloud, topn=1)[0]
+
+        cluster_name_dict[label] = cluster_name
+
+    return cluster_name_dict
+
+def filter_stopwords(texts, stop_words):
+    """
+    filter function for stop words + tokinization
+    :param texts:
+    :param stop_words:
+    :return:
+    """
+    all_texts = list()
+    for text in texts:
+        all_texts.append([t.lower() for t in text.split() if t.lower() not in stop_words])
+
+    return all_texts
+
+def build_w2v_model(tokens):
+    """
+    module for building and training the gensim
+    W2V model
+    :param texts:
+    :return:
+    """
+    model = Word2Vec(min_count=1,
+                         window=5,
+                         size=300,
+                         sample=6e-5,
+                         alpha=0.03,
+                         min_alpha=0.0007,
+                         negative=20,
+                         workers=3)
+    model.build_vocab(tokens, progress_per=10000)
+    model.train(tokens, total_examples=model.corpus_count, epochs=10)
+
+    return model
 
 def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers):
     """
@@ -178,7 +317,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
 
     ####
     # Configurations
-    n_data = 10000
+    n_data = 100
     data = data[:n_data] # comments processed
     n_classes = 3 # number of classes for the clustering
     ####
@@ -253,8 +392,11 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             # Update the dataset to reflect the removed outliers.
             data = data[outlier_scores == 1]
 
+
+    clustering_data = MinMaxScaler(feature_range=[0, 1]).fit_transform(clustering_data)
     # get the clusters from the bert embeddings by kmeans algorithm
     cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm, n_classes=n_classes)
+
     cluster_df = pd.DataFrame({"classes": cluster_ids,
                                "comments": list(data)})
     cluster_df = cluster_df.sort_values(by="classes")
@@ -274,5 +416,84 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     #data['cluster'] = cluster_ids
     #n_clusters = data['cluster'].nunique()
     #print(f'Found {n_clusters} clusters.')
+
+    return data
+
+def bert_topic_modelling_pipeline(data, normalization=True, dimensionality_reduction=True):
+    """
+    Perform a whole pipeline for automated labeling
+    """
+
+    """Initial configurations (more for testing)"""
+    N_DATA = 1000
+    data = list(data[:N_DATA]) # comments processed
+
+
+    """Preprocessing needed for BERT"""
+    try:
+        print("Load embeddings from pickle...\n")
+        with open("bert_sentence_embeddings.pkl", "rb") as embeddings_pkl:
+            embeddings = _pickle.load(embeddings_pkl)
+        data, sentence_embeddings = zip(*embeddings)
+        data = list(data)
+    except:
+        print("No embeddings found. Start BERT sentence embedding...\n")
+        # perform the preprocessing needed for bert and torch models
+        torch_data = perform_bert_preprocessing(data)
+        # get the sentence embedding for all comments
+        sentence_embeddings = get_bert_embeddings(torch_data)
+        embeddings = zip(data, sentence_embeddings)
+        with open("bert_sentence_embeddings.pkl", "wb") as embeddings_pkl:
+            _pickle.dump(embeddings,embeddings_pkl)
+
+    if len(data) == len(sentence_embeddings):
+        print(f"Processing {len(data)} sentence embeddings...\n")
+    else:
+        print("Dimension of data and embeddings differ...")
+        print(f"Data: {len(data)}")
+        print(f"Embeddings: {len(sentence_embeddings)}")
+
+
+    """Postprocessing for optimal clustering"""
+    if dimensionality_reduction:
+        print("Perform dimensionality reduction...\n")
+        reduced_embeddings = perform_dimensionality_reduction(sentence_embeddings)
+    if dimensionality_reduction:
+        print("Perform normalization...\n")
+        normalized_embeddings = perform_normalization(reduced_embeddings)
+
+    """Unsupervised Clustering"""
+    print("Perform unsupervised clustering...\n")
+    clusters = perform_clustering(normalized_embeddings)
+
+    """Find words representing each cluster"""
+    print("Find representing words per cluster...\n")
+    representations_dict = get_cluster_representations(data, clusters)
+
+    """Find the center of the representing words and use it as labels"""
+    print("Find label per cluster...\n")
+    comments = filter_stopwords(data, STOP_WORDS)
+    print("Building Word2Vec Model...")
+    w2v_model = build_w2v_model(comments)
+
+    print("Search for word cloud centers...\n")
+    word_cloud_centers = get_word_cloud_centers(representations_dict,  w2v_model.wv.vocab, w2v_model=w2v_model)
+
+    # exclude the -1 cluster produced by hdbscan
+    labels = list()
+    for cluster in clusters:
+        if cluster >= 0:
+            labels.append(word_cloud_centers[cluster])
+        else:
+            labels.append("")
+
+    # safe the labeled data as data frame
+    labeled_df = pd.DataFrame({"comments": data,
+                               "labels": labels,}).sort_values(by="labels")
+
+    # save the data frame to csv
+    # containing: comments
+    #             found labels
+    labeled_df.to_csv("labeled_comments.csv", sep=";", index=None)
 
     return data
