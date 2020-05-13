@@ -15,7 +15,7 @@ db_name = 'pnlp'
 url = f'mongodb+srv://{username}:{password}@cluster0-8ejtu.azure.mongodb.net/{db_name}?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE'
 
 # Add the MongoDB observer.
-ex.observers.append(MongoObserver(url=url, db_name=f'{db_name}'))
+# ex.observers.append(MongoObserver(url=url, db_name=f'{db_name}'))
 
 # Configure the experiment parameters. These will be logged by sacred.
 @ex.config
