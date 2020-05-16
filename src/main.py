@@ -40,7 +40,7 @@ def config():
     topic_model_param = {
 
             'embeddings': 'fasttext',
-            'cluster_algorithm': 'hdbscan',
+            'cluster_algorithm': 'optics',
             'normalization': True,
             'dim_reduction': True,
             'outliers': 0.15,

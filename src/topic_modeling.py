@@ -2,7 +2,7 @@
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering, OPTICS
 
 # clustering
 import fasttext
@@ -83,6 +83,24 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
         clusterer.fit(clustering_data)
         return clusterer.labels_
 
+    elif cluster_algorithm == 'optics':
+        # Instantiate the OPTICS clusterer.
+        clusterer = OPTICS(min_samples=40,
+                            metric='canberra',
+                            # p=2,
+                            metric_params=None,
+                            cluster_method='xi',
+                            eps=None,
+                            xi=0.05,
+                            predecessor_correction=True,
+                            min_cluster_size=None,
+                            algorithm='auto',
+                            leaf_size=30,
+                            n_jobs=None)
+
+        clusterer.fit(clustering_data)
+        return clusterer.labels_
+
     elif cluster_algorithm == 'kmeans':
         pass
 
@@ -137,11 +155,11 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     if normalization:
         # Normalize values between 1 and 0.
         clustering_data = MinMaxScaler(feature_range=[0, 1]).fit_transform(clustering_data)
-
     if dim_reduction:
         # Reduce dimensions for performance while maintaining majority of variance.
         clustering_data = PCA(n_components=150).fit_transform(clustering_data)
         # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
+        print('Performing dim reduction ...')
         reducer = umap.UMAP(metric='cosine', random_state=42, min_dist=0.0, spread=5, n_neighbors=19)
         clustering_data = reducer.fit(clustering_data).embedding_
         # Update the dataset with the reduced data for later visualization.
