@@ -17,6 +17,7 @@ import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
 import _pickle
+from collections import Counter
 
 
 def get_fasttext_embeddings(data):
@@ -105,6 +106,50 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
         pass
 
 
+def get_weighted_sentence_vectors(sentence_vectors, sentence_tokens, word_frequency, a=1e-3):
+    """
+    Get weighted sentence vectors according to PCA and smooth inverse word frequency.
+    Based on Aroya et al. (2016)
+    - param sentence_vectors: pd Series
+    - param sentence_tokens: pd Series
+    - param word_frequency: dict
+    """
+    sentences = []
+    for word_vectors, tokens in zip(sentence_vectors, sentence_tokens):
+        # Create empty vector to store transformed values.
+        new_vector = np.zeros(word_vectors[0].shape)
+        sentence_length = len(word_vectors)
+        for vec, tok in zip(word_vectors, tokens):
+            # Calculate smooth inverse word frequency.
+            a_value = a / (a + word_frequency[tok])
+            # Adjust new vector according to product of original and frequency.
+            new_vector = np.add(new_vector, np.multiply(a_value, vec))
+
+        # Compute weighted average.
+        new_vector = np.divide(new_vector, sentence_length)
+        sentences.append(new_vector)
+
+        # TODO: Use tf-idf vector for weighting.
+
+    return sentences
+
+
+def get_word_frequency(comments):
+    """
+    Get frequency of each word in the entire corpus.
+    - param comments: pd Series
+    """
+    # Extract all tokens to a single list.
+    vocab = list(set([word for comment in comments for word in comment]))
+
+    word_frequency = {}
+    # Calculate the frequency across the entire corpus.
+    for word, count in Counter(vocab).items():
+        word_frequency[word] = count / len(vocab)
+
+    return word_frequency
+
+
 def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers):
     """
     Perform cluster topic modeling using comment mean embeddings.
@@ -142,8 +187,11 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             exit()
 
         # Get mean embeddings.
-        print('Computing mean embeddings ...')
-        data['embeddings'] = data['embeddings'].apply(lambda x: np.mean(x, axis=0))
+        print('Computing weighted mean embeddings ...')
+        # Compute word frequency for weighted sentence vectors.
+        word_frequency = get_word_frequency(data['comment'])
+        # Compute sentence embeddings as weighted average of tokens.
+        data['embeddings'] = get_weighted_sentence_vectors(data['embeddings'], data['comment'], word_frequency)
         # Rename column.
         data.rename(columns={'embeddings': 'embedding'}, inplace=True)
         # Store to accelerate multiple trials.
