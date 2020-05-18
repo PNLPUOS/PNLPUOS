@@ -39,7 +39,7 @@ def config():
     }
     topic_model_param = {
 
-            'embeddings': 'fasttext',
+            'embeddings': 'bert',
             'cluster_algorithm': 'optics',
             'normalization': True,
             'dim_reduction': True,
@@ -50,7 +50,7 @@ def config():
     evaluation_param = {
 
             'keywords': 'tfidf',
-            'labels': 'top_5_words',
+            'labels': 'mean_projection',
 
     }
 
@@ -61,7 +61,9 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     # Load raw data.
     series = pd.read_csv(data_path, delimiter=';')['Comments']
     # Preprocessing.
-    data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment"})
+    data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
+    # Append raw comments needed for specific methods.
+    data['comment_raw'] = series
     # Topic modeling.
     data = model_topics(data, **topic_model_param)
     # Evaluate the results.

@@ -2,12 +2,14 @@
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.cluster import AgglomerativeClustering, OPTICS
+from sklearn.cluster import AgglomerativeClustering, OPTICS, KMeans
 
 # clustering
 import fasttext
 import hdbscan
 import umap.umap_ as umap
+import torch
+from transformers import BertTokenizer, BertModel, FeatureExtractionPipeline
 
 # data
 import numpy as np
@@ -18,6 +20,7 @@ import warnings
 warnings.filterwarnings('ignore')
 import _pickle
 from collections import Counter
+import time
 
 
 def get_fasttext_embeddings(data):
@@ -39,12 +42,75 @@ def get_word2vec_embeddings(data):
     pass
 
 
-def get_bert_embeddings(data):
+def bert_preprocessing(data):
+    """
+    Transform incoming data for using BERT framework
+    - param data: comments in a list
+    """
+    print("Initializing Bert tokenizer ...")
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    all_tensors = list()
+    for text in data:
+        # Encode the text to ids representing the bert tokens.
+        ids = tokenizer.encode(text)
+        tokens = tokenizer.convert_ids_to_tokens(ids)
+
+        # Convert to torch tensor.
+        tensor = torch.tensor([ids])
+        all_tensors.append(tensor)
+    # all_tensors: representation of each input comment
+    #              in an embedding space
+    return all_tensors
+
+
+def get_bert_embeddings(torch_data):
     """
     Get embeddings from Bert English model.
-    - param data: pd dataframe
+    - param torch_data: Preprocessed data from bert_preprocessing
     """
-    pass
+    print("Initializing Bert model ...")
+    model = BertModel.from_pretrained('bert-base-uncased', output_hidden_states=True)
+    # set bert model to eval mode
+    model.eval()
+
+    all_embeddings = list()
+    n_tensors = len(torch_data)
+    with torch.no_grad():
+        # little time measurement
+        start = time.process_time()
+        for i, data_tensor in enumerate(torch_data):
+            out = model(input_ids=data_tensor)
+            # this whole thing calculates the concatenated embeddings
+            # from the last for bert model layers
+            hidden_states = out[2]
+            last_four_layers = [hidden_states[i] for i in (-1, -2, -3, -4)]
+            cat_hidden_states = torch.cat(tuple(last_four_layers), dim=-1)
+            all_embeddings.append([emb for emb in cat_hidden_states.numpy().squeeze()])
+            # track embedding process
+            if i % 1000 == 0 and i != 0:
+                print(f"Embedded {i} of {n_tensors} sentences...")
+    end = time.process_time()
+    embedding_time = end-start
+    print(f"Time needed for embedding of {n_tensors} samples: {embedding_time}")
+
+    return all_embeddings
+
+
+def reduce_dimensions(clustering_data, metric, n_neighbors):
+    """
+    Dimensionality reduction for improved clustering.
+    - param clustering_data: input data frame with preprocessed text and encodings
+    - param metric: Dimensions of the output embeddings. Our experience is that dimension of 3 performs well.
+    - param n_neighbors: Number of neighbors
+    """
+    # PCA dimensionality reduction to improve performance and maintain variance.
+    clustering_data = PCA(n_components=150).fit_transform(clustering_data)
+    # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
+    print('Performing dim reduction ...')
+    reducer = umap.UMAP(metric=metric, random_state=42, min_dist=0.0, spread=5, n_neighbors=n_neighbors)
+    clustering_data = reducer.fit(clustering_data).embedding_
+
+    return clustering_data
 
 
 def get_cluster_ids(clustering_data, cluster_algorithm):
@@ -103,7 +169,14 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
         return clusterer.labels_
 
     elif cluster_algorithm == 'kmeans':
-        pass
+        n_clusters = 17
+        kmean = KMeans(n_clusters=n_clusters,
+                           max_iter=100,
+                           init="k-means++",
+                           n_init=1)
+
+        classes = kmean.fit_predict(clustering_data)
+        return classes
 
 
 def get_weighted_sentence_vectors(sentence_vectors, sentence_tokens, word_frequency, a=1e-3):
@@ -161,7 +234,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     - param outliers: float (degree of expected dataset contamination)
     """
     # Drop empty values.
-    data = data[data['comment'].map(lambda x: len(x) > 0)]
+    data = data[data['comment_clean'].map(lambda x: len(x) > 0)]
 
     try:
     # Load embeddings if already calculated.
@@ -174,13 +247,15 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Compute embeddings if not calculated.
         print(f'Getting embeddings: {embeddings} ...\n')
         if embeddings == 'fasttext':
-            data['embeddings'] = get_fasttext_embeddings(data)
+            data['embeddings'] = get_fasttext_embeddings(data['comment_clean'])
 
         elif embeddings == 'word2vec':
-            data['embeddings'] = get_word2vec_embeddings(data)
+            data['embeddings'] = get_word2vec_embeddings(data['comment_clean'])
 
         elif embeddings == 'bert':
-            data['embeddings'] = get_bert_embeddings(data)
+            # Preprocessing for bert and torch models
+            torch_data = bert_preprocessing(data['comment_raw'])
+            data['embeddings'] = get_bert_embeddings(torch_data)
 
         else:
             print('Selected embeddings not supported.')
@@ -189,9 +264,9 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Get mean embeddings.
         print('Computing weighted mean embeddings ...')
         # Compute word frequency for weighted sentence vectors.
-        word_frequency = get_word_frequency(data['comment'])
+        word_frequency = get_word_frequency(data['comment_clean'])
         # Compute sentence embeddings as weighted average of tokens.
-        data['embeddings'] = get_weighted_sentence_vectors(data['embeddings'], data['comment'], word_frequency)
+        data['embeddings'] = get_weighted_sentence_vectors(data['embeddings'], data['comment_clean'], word_frequency)
         # Rename column.
         data.rename(columns={'embeddings': 'embedding'}, inplace=True)
         # Store to accelerate multiple trials.
@@ -203,13 +278,10 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     if normalization:
         # Normalize values between 1 and 0.
         clustering_data = MinMaxScaler(feature_range=[0, 1]).fit_transform(clustering_data)
+
     if dim_reduction:
         # Reduce dimensions for performance while maintaining majority of variance.
-        clustering_data = PCA(n_components=150).fit_transform(clustering_data)
-        # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
-        print('Performing dim reduction ...')
-        reducer = umap.UMAP(metric='cosine', random_state=42, min_dist=0.0, spread=5, n_neighbors=19)
-        clustering_data = reducer.fit(clustering_data).embedding_
+        clustering_data = reduce_dimensions(clustering_data, 'cosine', 19)
         # Update the dataset with the reduced data for later visualization.
         data['PC1'] = [item[0] for item in clustering_data]
         data['PC2'] = [item[1] for item in clustering_data]
