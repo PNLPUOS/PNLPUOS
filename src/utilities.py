@@ -306,42 +306,44 @@ def get_keywords(data, keywords, cluster_id):
         pass
 
 
-def get_sentences(data, cluster_id):
-    """
-    *input dataframe with preprocessed comments and cluster IDs for each comment, cluster ID for representative sentence
-    *output TODO: what format?
-    *method: currently statistical method via word frequency
+def get_sentences(data, cluster_id, method, n):
+    '''
+    :param data: dataframe with tokenized comments, cluster_ids, embeddings, and raw comments
+    :param cluster_id: id of cluster representative sentences are needed for
+    :param method: statistical (via word frequency) or embedding (central tendency of embeddings)
+    :param n: number of desired representative sentences
+    :return: tokenized comments of n most representative sentences
+    '''
 
-    TODO:
-    - parse the comments from the 'data' dataframe (pandas cheatseet in 'data' channel)
-    - extract the most representative sentences according to the chosen method (methods in trello card)
-    - return these sentences as str in appropriate data structure, eg a list
-    """
+    if(method == "statistical"):
+        # create a general corpus of all tokenized comments
+        corpus = []
+        for comment in data[data['cluster'] == cluster_id]['comment']:
+            # separate items in comments
+            for item in comment:
+                corpus.append(item)
+        # get frequency distribution of tokens
+        freqdist = nltk.FreqDist(corpus)
+        # get absolute number of most frequent word as normalizer
+        norm = freqdist.most_common(1)[0][1]
+        # get relative frequency distribution by normalizing with most common token
+        for key, value in freqdist.items():
+            freqdist[key] = value / norm
+        # calculate weighted frequency for each comment
+        weightSentences = []
+        for comment in data[data['cluster'] == cluster_id]['comment']:
+            weightFreq = 0
+            for item in comment:
+                weightFreq += freqdist[item]
+            weightSentences.append((comment, weightFreq))
+        # sort list of weighted frequencies
+        weightSentences.sort(key=lambda tup: tup[1], reverse=True)
 
-    # create a general corpus of all tokenized comments
-    corpus = []
-    for comment in data[data['cluster'] == cluster_id]['comment']:
-        # separate items in comments
-        for item in comment:
-            corpus.append(item)
-    # get frequency distribution of tokens
-    freqdist = nltk.FreqDist(corpus)
-    # get absolute number of most frequent word as normalizer
-    norm = freqdist.most_common(1)[0][1]
-    # get relative frequency distribution by normalizing with most common token
-    for key, value in freqdist.items():
-        freqdist[key] = value / norm
-    # calculate weighted frequency for each comment
-    weightSentences = []
-    for comment in data[data['cluster'] == cluster_id]['comment']:
-        weightFreq = 0
-        for item in comment:
-            weightFreq += freqdist[item]
-        weightSentences.append((comment, weightFreq))
-    # sort list of weighted frequencies
-    weightSentences.sort(key=lambda tup: tup[1], reverse=True)
+        return weightSentences[0:n]
 
-    return weightSentences[0:2]
+    elif method == "embedding":
+        # TODO: find central embedding and surrounding comments
+        pass
 
 
 def get_label(keywords, labels, cluster_id):
