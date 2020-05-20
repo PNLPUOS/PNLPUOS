@@ -51,6 +51,8 @@ def config():
 
             'keywords': 'tfidf',
             'labels': 'top_5_words',
+            'method_sentences': 'statistical',
+            'n_sentences': 3
 
     }
 

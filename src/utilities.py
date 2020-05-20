@@ -306,7 +306,7 @@ def get_keywords(data, keywords, cluster_id):
         pass
 
 
-def get_sentences(data, cluster_id, method, n):
+def get_sentences(data, cluster_id, method_sentences, n_sentences):
     '''
     :param data: dataframe with tokenized comments, cluster_ids, embeddings, and raw comments
     :param cluster_id: id of cluster representative sentences are needed for
@@ -315,7 +315,7 @@ def get_sentences(data, cluster_id, method, n):
     :return: tokenized comments of n most representative sentences
     '''
 
-    if(method == "statistical"):
+    if method_sentences == "statistical":
         # create a general corpus of all tokenized comments
         corpus = []
         for comment in data[data['cluster'] == cluster_id]['comment']:
@@ -339,9 +339,9 @@ def get_sentences(data, cluster_id, method, n):
         # sort list of weighted frequencies
         weightSentences.sort(key=lambda tup: tup[1], reverse=True)
 
-        return weightSentences[0:n]
+        return weightSentences[0:n_sentences]
 
-    elif method == "embedding":
+    elif method_sentences == "embedding":
         # TODO: find central embedding and surrounding comments
         pass
 
@@ -361,7 +361,7 @@ def export_graph(data, graph_path):
     ax.savefig(graph_path)
 
 
-def evaluation(data, keywords, labels):
+def evaluation(data, keywords, labels, method_sentences, n_sentences):
     print('Exporting results ...')
     data_path = 'data.csv'
     clusters_path = 'clusters.csv'
@@ -373,7 +373,7 @@ def evaluation(data, keywords, labels):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
         cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id)
-        cluster_dict['sentences'] = get_sentences(data, cluster_id)
+        cluster_dict['sentences'] = get_sentences(data, cluster_id, method_sentences, n_sentences)
         cluster_info.append(cluster_dict)
 
     pd.DataFrame(cluster_info).to_csv(clusters_path)
