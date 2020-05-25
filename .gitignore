@@ -16,4 +16,5 @@ src/_mean_embeddings
 src/*.csv
 src/*.png
 src/credentials.py
+src/data
 

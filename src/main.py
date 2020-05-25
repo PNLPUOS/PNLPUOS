@@ -3,6 +3,7 @@ from topic_modeling import model_topics
 from utilities import preprocessing, evaluation
 from sentiment_classifier import *
 from credentials import username, password
+from text_summarization import text_summary_pipeline
 
 # sacred, misc
 from sacred import Experiment
@@ -63,6 +64,7 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     # Preprocessing.
     data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment"})
     # Topic modeling.
+    data = text_summary_pipeline(series)
     data = model_topics(data, **topic_model_param)
     # Evaluate the results.
     data_path, clusters_path, graph_path = evaluation(data, **evaluation_param)
