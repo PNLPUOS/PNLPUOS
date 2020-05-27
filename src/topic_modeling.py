@@ -3,6 +3,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.cluster import AgglomerativeClustering, OPTICS, KMeans
+from sklearn.metrics import silhouette_score
 
 # clustering
 import fasttext
@@ -21,6 +22,7 @@ warnings.filterwarnings('ignore')
 import _pickle
 from collections import Counter
 import time
+import itertools
 
 
 def get_fasttext_embeddings(data):
@@ -96,7 +98,7 @@ def get_bert_embeddings(torch_data):
     return all_embeddings
 
 
-def reduce_dimensions(clustering_data, metric, n_neighbors):
+def reduce_dimensions(clustering_data, metric='cosine', n_neighbors=19):
     """
     Dimensionality reduction for improved clustering.
     - param clustering_data: input data frame with preprocessed text and encodings
@@ -113,12 +115,19 @@ def reduce_dimensions(clustering_data, metric, n_neighbors):
     return clustering_data
 
 
-def get_cluster_ids(clustering_data, cluster_algorithm):
+def get_cluster_ids(clustering_data, cluster_algorithm, *args, **kwargs):
     """
     Run clustering algorithm on comment mean embeddings.
     - param clustering_data: list of np arrays (mean word embeddings)
     - param cluster_algorithm: str (type of cluster algorithm)
     """
+
+    param = {'metric': 'euclidean',
+             'min_samples': 40}
+
+    for key, value in kwargs.items():
+        param[key] = value
+
     print(f'Running clustering algorithm: {cluster_algorithm} ...')
     if cluster_algorithm == 'hdbscan':
         # Instantiate the hdbscan clusterer.
@@ -152,8 +161,8 @@ def get_cluster_ids(clustering_data, cluster_algorithm):
 
     elif cluster_algorithm == 'optics':
         # Instantiate the OPTICS clusterer.
-        clusterer = OPTICS(min_samples=40,
-                            metric='canberra',
+        clusterer = OPTICS(min_samples=param['min_samples'],
+                            metric=param['metric'],
                             # p=2,
                             metric_params=None,
                             cluster_method='xi',
@@ -223,6 +232,79 @@ def get_word_frequency(comments):
     return word_frequency
 
 
+def silhouette_coef(values, clusters):
+    '''
+    From values and cluster assignments, computes a clustering evaluation as
+    mean silhouette score.
+    - param values: np array
+    - param clusters: np array
+    '''
+    silhouette = silhouette_score(values, clusters, metric='cosine')
+    print(f'Silhouette score: {round(silhouette, 3)}')
+    # TODO: Integrate additional metric modifications.
+        # IDEAS: silhouette, ssquare, outliers, n_clusters
+
+    return silhouette
+
+
+def grid_search(data, pipeline, parameters, metric=silhouette_coef):
+    '''
+    Grid search to identify best set of hyperparameters.
+    - param data: pd Series
+    - param pipeline: list[function]
+    - param parameters: dict[str:list]
+    - param metric: function
+    '''
+    # Reformat parameters and compute all permutations for param_grid.
+    param_grid = [element for element in itertools.product(
+                            *[[{name.split('__')[0]: (name.split('__')[1], param)}
+                                        for param in params] for name, params in parameters.items()])]
+
+    # Store the results in a dictionary.
+    results = {}
+    data_reduced = None
+    # Iterate through the configurations.
+    for config in range(len(param_grid)):
+        print(f'\nTesting configuration {config+1}/{len(param_grid)+1}')
+        # Reformat the current configuration as a flat dict that can be mapped to the pipes.
+        flat_dict = {}
+        for param in param_grid[config]:
+            key = list(param.keys())[0]
+            value = list(param.values())[0]
+            if key not in flat_dict:
+                flat_dict[key] = [value]
+            else:
+                flat_dict[key].append(value)
+
+        # Load the unprocessed data.
+        data_unprocessed = data
+        for name, function in pipeline:
+            try:
+                # Get parameters for the current step in the pipeline.
+                param = dict(flat_dict[name])
+            except KeyError as e:
+                # Error handling for steps that do not take parameters.
+                param = {}
+            # Run current pipe on the data and udpate the processed data.
+            data_unprocessed = function(data_unprocessed, **param)
+            if name == 'dim_red':
+                # Extract reduced data if dim_red performed.
+                data_reduced = data_unprocessed
+
+        data_processed = data_unprocessed
+        # Score the processed data.
+        score = silhouette_coef(data, data_processed)
+        # Format the results and update dictionary.
+        results[config] = {'results': data_processed, 'score': score}
+
+    # Sort to determine best configuration.
+    best = sorted(results.items(), key=lambda x: x[1]['score'], reverse=False)[0][0]
+    best_results, score = results[best]['results'], results[best]['score']
+    print(f'\nBest configuration: {best}')
+
+    return best_results, score, data_reduced
+
+
 def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers):
     """
     Perform cluster topic modeling using comment mean embeddings.
@@ -275,25 +357,56 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
 
     # Apply additional preprocessing.
     clustering_data = np.array(data['embedding'].tolist())
+
+    # Organize pipeline object to track hyperparameter trials.
+    pipeline = []
+    parameters = {}
+
+    # Append normalization step.
     if normalization:
         # Normalize values between 1 and 0.
-        clustering_data = MinMaxScaler(feature_range=[0, 1]).fit_transform(clustering_data)
+        pipeline.append(('norm', MinMaxScaler(feature_range=[0, 1]).fit_transform))
 
+    # Append dimensionality reduction and test parameters.
     if dim_reduction:
         # Reduce dimensions for performance while maintaining majority of variance.
-        clustering_data = reduce_dimensions(clustering_data, 'cosine', 19)
-        # Update the dataset with the reduced data for later visualization.
-        data['PC1'] = [item[0] for item in clustering_data]
-        data['PC2'] = [item[1] for item in clustering_data]
+        pipeline.append(('dim_red', reduce_dimensions))
+        parameters['dim_red__metric'] = ['cosine', 'correlation']
+        parameters['dim_red__n_neighbors'] = [20, 30]
+        # TODO: Add parameters
+
+    # Append cluster pipe and test parameters.
+    parameters['cluster__cluster_algorithm'] = [cluster_algorithm]
+    if cluster_algorithm == 'optics':
+        parameters['cluster__metric'] = ['canberra', 'cosine']
+        parameters['cluster__min_sample'] = [20, 30, 40]
+
+    if cluster_algorithm == 'hdbscan':
+        parameters['cluster__metric'] = ['euclidean', 'cosine']
+        # TODO: Add parameters
+
+    if cluster_algorithm == 'kmeans':
+        # TODO: Add parameters
+        pass
+
+    if cluster_algorithm == 'agglomerative':
+        # TODO: Add parameters.
+        pass
+
+    pipeline.append(('cluster', get_cluster_ids))
+    cluster_ids, score, data_reduced = grid_search(clustering_data, pipeline, parameters, metric=silhouette_coef)
+
+    # Update the dataset with the reduced data for later visualization.
+    data['PC1'] = [item[0] for item in data_reduced]
+    data['PC2'] = [item[1] for item in data_reduced]
 
     if outliers:
         # Remove a certain percentage of outliers. Show the number of outliers.
-        outlier_scores = LocalOutlierFactor(contamination=outliers).fit_predict(clustering_data)
-        clustering_data = clustering_data[outlier_scores == 1]
+        outlier_scores = LocalOutlierFactor(contamination=outliers).fit_predict(data_reduced)
+        cluster_ids = cluster_ids[outlier_scores == 1]
         # Update the dataset to reflect the removed outliers.
         data = data[outlier_scores == 1]
 
-    cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
     # Append the cluster ids to the dataframe.
     data['cluster'] = cluster_ids
     n_clusters = data['cluster'].nunique()

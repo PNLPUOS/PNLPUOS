@@ -26,6 +26,8 @@ import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 import re
 from gensim.models import Word2Vec
+import logging
+logging.getLogger("gensim.models").setLevel(logging.WARNING)
 
 
 stopwordList = stopwords.words('english')
@@ -370,3 +372,4 @@ def evaluation(data, keywords, labels):
         print('Unable to export graph: no dimensionality reduction.')
 
     return data_path, clusters_path, graph_path
+
