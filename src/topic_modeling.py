@@ -24,6 +24,9 @@ from collections import Counter
 import time
 import itertools
 
+# tuning class
+from src.topic_modelling_utils.grid_search import HyperparameterTuning
+
 
 def get_fasttext_embeddings(data):
     """
@@ -132,12 +135,12 @@ def get_cluster_ids(clustering_data, cluster_algorithm, *args, **kwargs):
     if cluster_algorithm == 'hdbscan':
         # Instantiate the hdbscan clusterer.
         clusterer = hdbscan.HDBSCAN(algorithm='best',
-                            alpha=1.0,
+                            alpha=param['alpha'],
                             approx_min_span_tree=True,
                             gen_min_span_tree=False,
-                            leaf_size=40,
-                            metric='euclidean',
-                            min_cluster_size=100,
+                            leaf_size=param['leaf_size'],
+                            metric=param['metric'],
+                            min_cluster_size=param['min_cluster_size'],
                             min_samples=None,
                             p=None)
 
@@ -230,7 +233,6 @@ def get_word_frequency(comments):
         word_frequency[word] = count / len(vocab)
 
     return word_frequency
-
 
 def silhouette_coef(values, clusters):
     '''
@@ -361,7 +363,8 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     # Organize pipeline object to track hyperparameter trials.
     pipeline = []
     parameters = {}
-
+    tuning_pipeline = dict()
+    tuning_parameters = dict()
     # Append normalization step.
     if normalization:
         # Normalize values between 1 and 0.
@@ -373,6 +376,10 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         pipeline.append(('dim_red', reduce_dimensions))
         parameters['dim_red__metric'] = ['cosine', 'correlation']
         parameters['dim_red__n_neighbors'] = [20, 30]
+        tuning_pipeline.update({'dim_reduction': reduce_dimensions})
+        tuning_parameters.update({'dim_reduction':
+                                      {'metric':['cosine', 'correlation'],
+                                       'n_neighbors':[20, 30]}})
         # TODO: Add parameters
 
     # Append cluster pipe and test parameters.
@@ -381,8 +388,16 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         parameters['cluster__metric'] = ['canberra', 'cosine']
         parameters['cluster__min_sample'] = [20, 30, 40]
 
+
     if cluster_algorithm == 'hdbscan':
         parameters['cluster__metric'] = ['euclidean', 'cosine']
+        tuning_pipeline.update({cluster_algorithm: get_cluster_ids})
+        tuning_parameters.update({cluster_algorithm:
+                                      {'alpha': [0.1, 0.01, 0.001],
+                                       'leaf_size': [40, 50, 60],
+                                       'metric': ['euclidean', 'cosine'],
+                                       'min_cluster_size': [100, 200, 300]}
+                                  })
         # TODO: Add parameters
 
     if cluster_algorithm == 'kmeans':
@@ -394,6 +409,10 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         pass
 
     pipeline.append(('cluster', get_cluster_ids))
+
+    hyperparameter_tuning = HyperparameterTuning(clustering_data, tuning_pipeline, tuning_parameters)
+
+    hyperparameter_tuning.build_grid()
     cluster_ids, score, data_reduced = grid_search(clustering_data, pipeline, parameters, metric=silhouette_coef)
 
     # Update the dataset with the reduced data for later visualization.

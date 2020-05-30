@@ -40,7 +40,7 @@ def config():
     topic_model_param = {
 
             'embeddings': 'bert',
-            'cluster_algorithm': 'optics',
+            'cluster_algorithm': 'hdbscan',
             'normalization': True,
             'dim_reduction': True,
             'outliers': 0.15,
