@@ -25,7 +25,7 @@ import time
 import itertools
 
 # tuning class
-from src.topic_modelling_utils.grid_search import HyperparameterTuning
+from topic_modelling_utils.grid_search import HyperparameterTuning
 
 
 def get_fasttext_embeddings(data):
@@ -101,7 +101,44 @@ def get_bert_embeddings(torch_data):
     return all_embeddings
 
 
-def reduce_dimensions(clustering_data, metric='cosine', n_neighbors=19):
+def get_arguments(default, input_parameters):
+    """
+    update default parameters with
+    input parameters
+    :param default:
+    :param input_parameters:
+    :return:
+    """
+    for key in input_parameters:
+        if key in default:
+            default.update(
+                {key: input_parameters[key]}
+            )
+
+    return default
+
+def normalize_data(clustering_data, normalization_algorithm = "MinMaxScaler", parameter_config = {}):
+    """
+    normalize data for later processing
+    :param clustering_data:
+    :param normalization_algorithm:
+    :param parameter_config:
+    :return:
+    """
+    print(f'Performing normalization {normalization_algorithm}...')
+    if normalization_algorithm == "MinMaxScaler":
+        default_param = {
+            'feature_range': [0, 1],
+        }
+        param = get_arguments(default_param, parameter_config)
+        normalizer = MinMaxScaler(
+            feature_range=param['feature_range']
+        )
+
+    clustering_data = normalizer.fit_transform(clustering_data)
+    return clustering_data
+
+def reduce_dimensions(clustering_data, reduction_algorithm = "UMAP", parameter_config = {}):
     """
     Dimensionality reduction for improved clustering.
     - param clustering_data: input data frame with preprocessed text and encodings
@@ -111,84 +148,135 @@ def reduce_dimensions(clustering_data, metric='cosine', n_neighbors=19):
     # PCA dimensionality reduction to improve performance and maintain variance.
     clustering_data = PCA(n_components=150).fit_transform(clustering_data)
     # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
-    print('Performing dim reduction ...')
-    reducer = umap.UMAP(metric=metric, random_state=42, min_dist=0.0, spread=5, n_neighbors=n_neighbors)
-    clustering_data = reducer.fit(clustering_data).embedding_
+    print(f'Performing dim reduction {reduction_algorithm}...')
+    if reduction_algorithm == "UMAP":
+        default_param = {
+            'metric': 'euclidean',
+            'random_state': 42,
+            'min_dist': 0.0,
+            'spread': 5,
+            'n_neighbors': 19
+        }
+        param = get_arguments(default_param, parameter_config)
+
+        reducer = umap.UMAP(metric=param['metric'],
+                            random_state=param['random_state'],
+                            min_dist=param['min_dist'],
+                            spread=param['spread'],
+                            n_neighbors=param['n_neighbors'])
+
+        clustering_data = reducer.fit(clustering_data).embedding_
 
     return clustering_data
 
 
-def get_cluster_ids(clustering_data, cluster_algorithm, *args, **kwargs):
+def get_cluster_ids(clustering_data, cluster_algorithm = "hdbscan", parameter_config = {}):
     """
     Run clustering algorithm on comment mean embeddings.
     - param clustering_data: list of np arrays (mean word embeddings)
     - param cluster_algorithm: str (type of cluster algorithm)
     """
-
-    param = {'metric': 'euclidean',
-             'min_samples': 40}
-
-    for key, value in kwargs.items():
-        param[key] = value
-
     print(f'Running clustering algorithm: {cluster_algorithm} ...')
     if cluster_algorithm == 'hdbscan':
-        # Instantiate the hdbscan clusterer.
-        clusterer = hdbscan.HDBSCAN(algorithm='best',
-                            alpha=param['alpha'],
-                            approx_min_span_tree=True,
-                            gen_min_span_tree=False,
-                            leaf_size=param['leaf_size'],
-                            metric=param['metric'],
-                            min_cluster_size=param['min_cluster_size'],
-                            min_samples=None,
-                            p=None)
+        default_param = {
+            'algorithm': 'best',
+            'alpha': 0.1,
+            'approx_min_span_tree': True,
+            'gen_min_span_tree': False,
+            'leaf_size': 40,
+            'metric': 'euclidean',
+            'min_cluster_size': 100,
+            'min_samples': None,
+            'p': None
+        }
+        param = get_arguments(default_param, parameter_config)
 
-        # Fit the clusterer to the data.
-        clusterer.fit(clustering_data)
-        return clusterer.labels_
+        # Instantiate the hdbscan clusterer.
+        clusterer = hdbscan.HDBSCAN(
+            algorithm=param['algorithm'],
+            alpha=param['alpha'],
+            approx_min_span_tree=param['approx_min_span_tree'],
+            gen_min_span_tree=param['gen_min_span_tree'],
+            leaf_size=param['leaf_size'],
+            metric=param['metric'],
+            min_cluster_size=param['min_cluster_size'],
+            min_samples=param['min_samples'],
+            p=param['p']
+        )
 
     elif cluster_algorithm == 'agglomerative':
         # Instantiate the agglomerative clusterer.
-        clusterer = AgglomerativeClustering(n_clusters=None,
-                            affinity='cosine',
-                            memory=None,
-                            connectivity=None,
-                            compute_full_tree='auto',
-                            linkage='single',
-                            distance_threshold=0.55)
-
-        # Fit the clusterer to the data.
-        clusterer.fit(clustering_data)
-        return clusterer.labels_
+        default_param = {
+            'n_clusters': None,
+            'affinity': 'cosine',
+            'memory': None,
+            'connectivity': None,
+            'compute_full_tree': 'auto',
+            'linkage': 'single',
+            'distance_threshold': 0.55
+        }
+        param = get_arguments(default_param, parameter_config)
+        clusterer = AgglomerativeClustering(
+            n_clusters=param['n_clusters'],
+            affinity=param['affinity'],
+            memory=param['memory'],
+            connectivity=param['connectivity'],
+            compute_full_tree=param['compute_full_tree'],
+            linkage=param['linkage'],
+            distance_threshold=param['distance_threshold']
+        )
 
     elif cluster_algorithm == 'optics':
-        # Instantiate the OPTICS clusterer.
-        clusterer = OPTICS(min_samples=param['min_samples'],
-                            metric=param['metric'],
-                            # p=2,
-                            metric_params=None,
-                            cluster_method='xi',
-                            eps=None,
-                            xi=0.05,
-                            predecessor_correction=True,
-                            min_cluster_size=None,
-                            algorithm='auto',
-                            leaf_size=30,
-                            n_jobs=None)
+        default_param = {
+            'algorithm': 'auto',
+            'cluster_method': 'xi',
+            'eps': None,
+            'predecessor_correction': True,
+            'leaf_size': 30,
+            'metric': 'euclidean',
+            'metric_params': None,
+            'min_cluster_size': None,
+            'min_samples': 40,
+            'xi': 0.05,
+            'n_jobs': None
+        }
+        param = get_arguments(default_param, parameter_config)
 
-        clusterer.fit(clustering_data)
-        return clusterer.labels_
+        # Instantiate the OPTICS clusterer.
+        clusterer = OPTICS(
+            min_samples=param['min_samples'],
+            metric=param['metric'],
+            metric_params=param['metric_params'],
+            cluster_method=param['cluster_method'],
+            eps=param['eps'],
+            xi=param['xi'],
+            predecessor_correction=param['predecessor_correction'],
+            min_cluster_size=param['min_cluster_size'],
+            algorithm=param['algorithm'],
+            leaf_size=param['leaf_size'],
+            n_jobs=param['n_jobs']
+        )
 
     elif cluster_algorithm == 'kmeans':
-        n_clusters = 17
-        kmean = KMeans(n_clusters=n_clusters,
-                           max_iter=100,
-                           init="k-means++",
-                           n_init=1)
 
-        classes = kmean.fit_predict(clustering_data)
-        return classes
+        default_param = {
+            'n_clusters': 17,
+            'max_iter': 100,
+            'init': 'k-means++',
+            'n_init': 1
+        }
+        param = get_arguments(default_param, parameter_config)
+        n_clusters = 17
+        clusterer = KMeans(
+            n_clusters=param['n_clusters'],
+           max_iter=param['max_iter'],
+           init=param['init'],
+           n_init=param['n_init']
+        )
+
+    # Fit the clusterer to the data.
+    clusterer.fit(clustering_data)
+    return clusterer.labels_
 
 
 def get_weighted_sentence_vectors(sentence_vectors, sentence_tokens, word_frequency, a=1e-3):
@@ -307,7 +395,7 @@ def grid_search(data, pipeline, parameters, metric=silhouette_coef):
     return best_results, score, data_reduced
 
 
-def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers):
+def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers, run_grid_search):
     """
     Perform cluster topic modeling using comment mean embeddings.
     - param data: pd dataframe (preprocessed data)
@@ -316,6 +404,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     - param normalization: bool (perform normalization y/n)
     - param dim_reduction: bool (perform dimensionality reduction y/n)
     - param outliers: float (degree of expected dataset contamination)
+    - param run_grid_search: bool (perform hyperparamter tuning process)
     """
     # Drop empty values.
     data = data[data['comment_clean'].map(lambda x: len(x) > 0)]
@@ -360,60 +449,128 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     # Apply additional preprocessing.
     clustering_data = np.array(data['embedding'].tolist())
 
-    # Organize pipeline object to track hyperparameter trials.
+    """# Organize pipeline object to track hyperparameter trials.
     pipeline = []
-    parameters = {}
-    tuning_pipeline = dict()
-    tuning_parameters = dict()
-    # Append normalization step.
-    if normalization:
-        # Normalize values between 1 and 0.
-        pipeline.append(('norm', MinMaxScaler(feature_range=[0, 1]).fit_transform))
+    parameters = {}"""
+    # define the function steps performed in pipeline
+    pipeline = {
+        'normalization':
+            {'function': normalize_data,
+             'parameters': {},
+             'name': 'MinMaxScaler'},
+        'dim_reduction':
+             {'function': reduce_dimensions,
+              'parameters': {},
+              'name': 'UMAP'},
+        'cluster_algorithm':
+            {'function': get_cluster_ids,
+             'parameters': {},
+             'name': cluster_algorithm}
+    }
+    optimal_configurations = dict()
 
-    # Append dimensionality reduction and test parameters.
-    if dim_reduction:
-        # Reduce dimensions for performance while maintaining majority of variance.
-        pipeline.append(('dim_red', reduce_dimensions))
-        parameters['dim_red__metric'] = ['cosine', 'correlation']
-        parameters['dim_red__n_neighbors'] = [20, 30]
-        tuning_pipeline.update({'dim_reduction': reduce_dimensions})
-        tuning_parameters.update({'dim_reduction':
-                                      {'metric':['cosine', 'correlation'],
-                                       'n_neighbors':[20, 30]}})
-        # TODO: Add parameters
+    if run_grid_search:
+        # Append normalization step.
+        if normalization:
+            # Normalize values between 1 and 0.
+            """pipeline.append(('norm', MinMaxScaler(feature_range=[0, 1]).fit_transform))"""
+            pipeline.update(
+                {'normalization':
+                     {'function': normalize_data,
+                      'parameters': {
+                          'feature_range': [[0, 1]],
+                      },
+                      'name': 'MinMaxScaler'}
+                 }
+            )
 
-    # Append cluster pipe and test parameters.
-    parameters['cluster__cluster_algorithm'] = [cluster_algorithm]
-    if cluster_algorithm == 'optics':
-        parameters['cluster__metric'] = ['canberra', 'cosine']
-        parameters['cluster__min_sample'] = [20, 30, 40]
+        # Append dimensionality reduction and test parameters.
+        if dim_reduction:
+            # Reduce dimensions for performance while maintaining majority of variance.
+            """pipeline.append(('dim_red', reduce_dimensions))
+            parameters['dim_red__metric'] = ['cosine', 'correlation']
+            parameters['dim_red__n_neighbors'] = [20, 30]"""
+            pipeline.update(
+                {'dim_reduction':
+                     {'function':reduce_dimensions,
+                      'parameters':{
+                         'metric':['cosine'],
+                         'n_neighbors':[20]
+                     },
+                     'name': 'UMAP'}
+                 }
+            )
 
+        # Append cluster pipe and test parameters.
+        """parameters['cluster__cluster_algorithm'] = [cluster_algorithm]"""
+        if cluster_algorithm == 'optics':
+            """parameters['cluster__metric'] = ['canberra', 'cosine']
+            parameters['cluster__min_sample'] = [20, 30, 40]"""
 
-    if cluster_algorithm == 'hdbscan':
-        parameters['cluster__metric'] = ['euclidean', 'cosine']
-        tuning_pipeline.update({cluster_algorithm: get_cluster_ids})
-        tuning_parameters.update({cluster_algorithm:
-                                      {'alpha': [0.1, 0.01, 0.001],
-                                       'leaf_size': [40, 50, 60],
-                                       'metric': ['euclidean', 'cosine'],
-                                       'min_cluster_size': [100, 200, 300]}
-                                  })
-        # TODO: Add parameters
+        if cluster_algorithm == 'hdbscan':
+            """parameters['cluster__metric'] = ['euclidean', 'cosine']"""
+            pipeline.update(
+                {'cluster_algorithm':
+                     {'function': get_cluster_ids,
+                      'parameters': {
+                          'alpha': [0.1],
+                           'leaf_size': [40],
+                           'metric': ['euclidean'],
+                           'min_cluster_size': [100]
+                      },
+                      'name': cluster_algorithm}
+                 }
+            )
 
-    if cluster_algorithm == 'kmeans':
-        # TODO: Add parameters
-        pass
+        if cluster_algorithm == 'kmeans':
+            pipeline.update(
+                {'cluster_algorithm':
+                    {'function': get_cluster_ids,
+                     'parameters': {
+                         'n_clusters': [15, 20, 25],
+                         'max_iter': [100, 150],
+                         'init': 'k-means++',
+                         'n_init': [1, 2]
+                       },
+                     'name': cluster_algorithm
+                     }
+                }
+            )
 
-    if cluster_algorithm == 'agglomerative':
-        # TODO: Add parameters.
-        pass
+        if cluster_algorithm == 'agglomerative':
+            # TODO: Add parameters.
+            pass
 
-    pipeline.append(('cluster', get_cluster_ids))
+        """pipeline.append(('cluster', get_cluster_ids))"""
 
-    hyperparameter_tuning = HyperparameterTuning(clustering_data, tuning_pipeline, tuning_parameters)
+        # initialize the hyperparameter tuning class
+        hyperparameter_tuning = HyperparameterTuning(
+            clustering_data,
+            pipeline
+        )
 
-    hyperparameter_tuning.build_grid()
-    cluster_ids, score, data_reduced = grid_search(clustering_data, pipeline, parameters, metric=silhouette_coef)
+        # performing the search on the parameter grid
+        hyperparameter_tuning.perform_grid_search()
+        # run the top 5 configurations on the test set
+        optimal_configurations = hyperparameter_tuning.run_on_test_set(
+            top_n=5,
+            optimize_for=['outliers']
+        )
+
+    """cluster_ids, score, data_reduced = grid_search(clustering_data, pipeline, parameters, metric=silhouette_coef)"""
+    if len(optimal_configurations) > 0:
+        for component in pipeline:
+            pipeline[component]['parameters'].update(optimal_configurations[component])
+
+    # process data with optimal configuration (found by grid search)
+    cluster_ids = clustering_data
+    for step in pipeline:
+        pipeline_component = pipeline[step]['function']
+        component_parameters = pipeline[step]['parameters']
+        component_name = pipeline[step]['name']
+        cluster_ids = pipeline_component(cluster_ids, component_name, component_parameters)
+        if step == "dim_reduction":
+            data_reduced = cluster_ids
 
     # Update the dataset with the reduced data for later visualization.
     data['PC1'] = [item[0] for item in data_reduced]
