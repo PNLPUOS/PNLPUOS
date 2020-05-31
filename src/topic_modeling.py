@@ -117,7 +117,10 @@ def get_arguments(default, input_parameters):
 
     return default
 
-def normalize_data(clustering_data, normalization_algorithm = "MinMaxScaler", parameter_config = {}):
+
+def normalize_data(clustering_data,
+                   normalization_algorithm="MinMaxScaler",
+                   parameter_config=None ):
     """
     normalize data for later processing
     :param clustering_data:
@@ -126,6 +129,10 @@ def normalize_data(clustering_data, normalization_algorithm = "MinMaxScaler", pa
     :return:
     """
     print(f'Performing normalization {normalization_algorithm}...')
+
+    if not parameter_config:
+        parameter_config = dict()
+
     if normalization_algorithm == "MinMaxScaler":
         default_param = {
             'feature_range': [0, 1],
@@ -135,20 +142,27 @@ def normalize_data(clustering_data, normalization_algorithm = "MinMaxScaler", pa
             feature_range=param['feature_range']
         )
 
-    clustering_data = normalizer.fit_transform(clustering_data)
+        clustering_data = normalizer.fit_transform(clustering_data)
     return clustering_data
 
-def reduce_dimensions(clustering_data, reduction_algorithm = "UMAP", parameter_config = {}):
+
+def reduce_dimensions(clustering_data, reduction_algorithm="UMAP", parameter_config=None):
     """
-    Dimensionality reduction for improved clustering.
-    - param clustering_data: input data frame with preprocessed text and encodings
-    - param metric: Dimensions of the output embeddings. Our experience is that dimension of 3 performs well.
-    - param n_neighbors: Number of neighbors
+    dimensionality reduction for improvement
+    of clustering
+    :param clustering_data:
+    :param reduction_algorithm:
+    :param parameter_config:
+    :return:
     """
     # PCA dimensionality reduction to improve performance and maintain variance.
     clustering_data = PCA(n_components=150).fit_transform(clustering_data)
     # UMAP dimensionality reduction to more cleanly separate clusters and improve performance.
     print(f'Performing dim reduction {reduction_algorithm}...')
+
+    if not parameter_config:
+        parameter_config = dict()
+
     if reduction_algorithm == "UMAP":
         default_param = {
             'metric': 'euclidean',
@@ -170,13 +184,17 @@ def reduce_dimensions(clustering_data, reduction_algorithm = "UMAP", parameter_c
     return clustering_data
 
 
-def get_cluster_ids(clustering_data, cluster_algorithm = "hdbscan", parameter_config = {}):
+def get_cluster_ids(clustering_data, cluster_algorithm="hdbscan", parameter_config=None):
     """
     Run clustering algorithm on comment mean embeddings.
     - param clustering_data: list of np arrays (mean word embeddings)
     - param cluster_algorithm: str (type of cluster algorithm)
     """
     print(f'Running clustering algorithm: {cluster_algorithm} ...')
+
+    if not parameter_config:
+        parameter_config = dict()
+
     if cluster_algorithm == 'hdbscan':
         default_param = {
             'algorithm': 'best',
