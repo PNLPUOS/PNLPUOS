@@ -254,5 +254,6 @@ class HyperparameterTuning:
                 print(f"Component: {component}")
                 for parameter in self.pipeline_grid[best_config][component]:
                     print(f"{parameter}: {self.pipeline_grid[best_config][component][parameter]}")
+                print("\n")
 
             return self.pipeline_grid[best_config]

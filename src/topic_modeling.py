@@ -13,6 +13,7 @@ import torch
 from transformers import BertTokenizer, BertModel, FeatureExtractionPipeline
 
 # data
+from typing import List, Dict
 import numpy as np
 import pandas as pd
 
@@ -28,7 +29,7 @@ import itertools
 from topic_modelling_utils.grid_search import HyperparameterTuning
 
 
-def get_fasttext_embeddings(data):
+def get_fasttext_embeddings(data: pd.DataFrame) -> pd.Series:
     """
     Get embeddings from fastext English model.
     - param data: pd dataframe
@@ -47,7 +48,7 @@ def get_word2vec_embeddings(data):
     pass
 
 
-def bert_preprocessing(data):
+def bert_preprocessing(data: List[str]) -> List[torch.tensor]:
     """
     Transform incoming data for using BERT framework
     - param data: comments in a list
@@ -68,7 +69,7 @@ def bert_preprocessing(data):
     return all_tensors
 
 
-def get_bert_embeddings(torch_data):
+def get_bert_embeddings(torch_data: List[torch.tensor]) -> List[np.array]:
     """
     Get embeddings from Bert English model.
     - param torch_data: Preprocessed data from bert_preprocessing
@@ -101,12 +102,12 @@ def get_bert_embeddings(torch_data):
     return all_embeddings
 
 
-def get_arguments(default, input_parameters):
+def get_arguments(default: Dict[str, Dict], input_parameters: Dict):
     """
     update default parameters with
     input parameters
-    :param default:
-    :param input_parameters:
+    :param default: given config
+    :param input_parameters: data to over write
     :return:
     """
     for key in input_parameters:
@@ -118,9 +119,9 @@ def get_arguments(default, input_parameters):
     return default
 
 
-def normalize_data(clustering_data,
-                   normalization_algorithm="MinMaxScaler",
-                   parameter_config=None ):
+def normalize_data(clustering_data: List,
+                   normalization_algorithm: str="MinMaxScaler",
+                   parameter_config=None ) -> List:
     """
     normalize data for later processing
     :param clustering_data:
@@ -146,7 +147,9 @@ def normalize_data(clustering_data,
     return clustering_data
 
 
-def reduce_dimensions(clustering_data, reduction_algorithm="UMAP", parameter_config=None):
+def reduce_dimensions(clustering_data: List,
+                      reduction_algorithm: str="UMAP",
+                      parameter_config=None) -> List:
     """
     dimensionality reduction for improvement
     of clustering
@@ -297,7 +300,10 @@ def get_cluster_ids(clustering_data, cluster_algorithm="hdbscan", parameter_conf
     return clusterer.labels_
 
 
-def get_weighted_sentence_vectors(sentence_vectors, sentence_tokens, word_frequency, a=1e-3):
+def get_weighted_sentence_vectors(sentence_vectors: pd.Series,
+                                  sentence_tokens: pd.Series,
+                                  word_frequency: Dict,
+                                  a=1e-3) -> List:
     """
     Get weighted sentence vectors according to PCA and smooth inverse word frequency.
     Based on Aroya et al. (2016)
@@ -325,7 +331,7 @@ def get_weighted_sentence_vectors(sentence_vectors, sentence_tokens, word_freque
     return sentences
 
 
-def get_word_frequency(comments):
+def get_word_frequency(comments: pd.Series) -> Dict:
     """
     Get frequency of each word in the entire corpus.
     - param comments: pd Series
@@ -471,6 +477,22 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     pipeline = []
     parameters = {}"""
     # define the function steps performed in pipeline
+
+    #####################
+    # this pipeline sets something like a blueprint for
+    # the whole process. Its architecture should be very
+    # dynamic and easy to add components:
+    # each pipeline step gets a name (e.g. normalization)
+    # each step has three main parts:
+    # - function: performs step and is designed like the normalize_data
+    #             function so it should take three arguments:
+    #             data, algorithm and parameters in a dictionary
+    # - parameters: a dictionary which can be empty so the default
+    #               are set in the function itselfe or it is filled
+    #               (e.g. for grid search)
+    # - name: sets algorithm executed in the function
+    #####################
+
     pipeline = {
         'normalization':
             {'function': normalize_data,
@@ -485,8 +507,11 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
              'parameters': {},
              'name': cluster_algorithm}
     }
+
+    # defined by grid search or default in function
     optimal_configurations = dict()
 
+    # in main defined if grid search should be performed
     if run_grid_search:
         # Append normalization step.
         if normalization:
