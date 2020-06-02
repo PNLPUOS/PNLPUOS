@@ -17,6 +17,7 @@ from html.parser import HTMLParser
 # data
 import pandas as pd
 import numpy as np
+import scipy as sp
 
 # visualization
 import seaborn as sns
@@ -310,8 +311,8 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
     '''
     :param data: dataframe with tokenized comments, cluster_ids, embeddings, and raw comments
     :param cluster_id: id of cluster representative sentences are needed for
-    :param method: statistical (via word frequency) or embedding (central tendency of embeddings)
-    :param n: number of desired representative sentences
+    :param method_sentences: statistical (via word frequency) or embedding (central tendency of embeddings)
+    :param n_sentences: number of desired representative sentences
     :return: tokenized comments of n most representative sentences
     '''
 
@@ -338,13 +339,23 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
             weightSentences.append((comment, weightFreq))
         # sort list of weighted frequencies
         weightSentences.sort(key=lambda tup: tup[1], reverse=True)
+        # clear output of frequency weights
+        repr_sentences = []
+        for item in weightSentences[0:n_sentences]:
+            repr_sentences.append(item[0])
 
-        return weightSentences[0:n_sentences]
+        return repr_sentences
 
     elif method_sentences == "embedding":
-        # TODO: find central embedding and surrounding comments
-        pass
-
+        # filter incoming data by cluster_id
+        cluster_data = data.loc[data['cluster'] == cluster_id]
+        # calculate overall mean sentence embedding for cluster
+        mean_embedding = np.mean(cluster_data['embedding'], axis=0)
+        # determine distance to mean for each embedding (cosine similarity)
+        cluster_data['dist'] = cluster_data['embedding'].apply(lambda x: sp.spatial.distance.cosine(x, mean_embedding))
+        # find n representative sentences with smallest distance
+        repr_sentences = pd.DataFrame.nsmallest(cluster_data, columns='dist', n=n_sentences)
+        return repr_sentences['comment'].array
 
 def get_label(keywords, labels, cluster_id):
     if labels == 'top_5_words':
