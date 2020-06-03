@@ -26,6 +26,7 @@ import seaborn as sns
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 import re
+from gensim.models import Word2Vec
 
 
 stopwordList = stopwords.words('english')
@@ -279,8 +280,22 @@ def preprocessing(txt, punctuation= False, tokenize= False, stopwords= False, co
     return cleanedTxt
 
 
+def build_w2v_model(sentences):
+    model = Word2Vec(sentences=sentences,
+                        min_count=1,
+                         window=5,
+                         size=300,
+                         sample=6e-5,
+                         alpha=0.03,
+                         min_alpha=0.0007,
+                         negative=20,
+                         workers=3)
+
+    return model
+
+
 def get_keywords(data, keywords, cluster_id):
-    corpus = [' '.join(comment) for comment in data[data['cluster'] == cluster_id]['comment'].tolist()]
+    corpus = [' '.join(comment) for comment in data[data['cluster'] == cluster_id]['comment_clean'].tolist()]
     if keywords == 'tfidf':
         vectorizer = TfidfVectorizer(analyzer='word',
                  ngram_range=(1,1),
@@ -357,12 +372,13 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         repr_sentences = pd.DataFrame.nsmallest(cluster_data, columns='dist', n=n_sentences)
         return repr_sentences['comment'].array
 
-def get_label(keywords, labels, cluster_id):
+def get_label(keywords, labels, cluster_id, model):
     if labels == 'top_5_words':
         return ' '.join(keywords[:5])
 
     elif labels == 'mean_projection':
-        pass
+        cluster_name, _ = model.most_similar(positive=keywords, topn=1)[0]
+        return cluster_name
 
 
 def export_graph(data, graph_path):
@@ -378,12 +394,13 @@ def evaluation(data, keywords, labels, method_sentences, n_sentences):
     clusters_path = 'clusters.csv'
     graph_path = 'graph.png'
 
+    model = build_w2v_model(data['comment_clean'].tolist())
     data.to_csv(data_path)
     cluster_info = []
     for cluster_id in sorted(list(data['cluster'].unique())):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
-        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id)
+        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, model)
         cluster_dict['sentences'] = get_sentences(data, cluster_id, method_sentences, n_sentences)
         cluster_info.append(cluster_dict)
 
