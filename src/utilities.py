@@ -347,7 +347,7 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
             freqdist[key] = value / norm
         # calculate weighted frequency for each comment
         weightSentences = []
-        for comment in data[data['cluster'] == cluster_id]['comment']:
+        for comment in data[data['cluster'] == cluster_id]['comment_clean']:
             weightFreq = 0
             for item in comment:
                 weightFreq += freqdist[item]
@@ -370,7 +370,8 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         cluster_data['dist'] = cluster_data['embedding'].apply(lambda x: sp.spatial.distance.cosine(x, mean_embedding))
         # find n representative sentences with smallest distance
         repr_sentences = pd.DataFrame.nsmallest(cluster_data, columns='dist', n=n_sentences)
-        return repr_sentences['comment'].array
+
+        return repr_sentences['comment_clean'].array
 
 def get_label(keywords, labels, cluster_id, model):
     if labels == 'top_5_words':
