@@ -334,9 +334,9 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
     if method_sentences == "statistical":
         # create a general corpus of all tokenized comments
         corpus = []
-        for comment in data[data['cluster'] == cluster_id]['comment']:
+        for comment_clean in data[data['cluster'] == cluster_id]['comment_clean']:
             # separate items in comments
-            for item in comment:
+            for item in comment_clean:
                 corpus.append(item)
         # get frequency distribution of tokens
         freqdist = nltk.FreqDist(corpus)
@@ -346,20 +346,18 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         for key, value in freqdist.items():
             freqdist[key] = value / norm
         # calculate weighted frequency for each comment
-        weightSentences = []
-        for comment in data[data['cluster'] == cluster_id]['comment_clean']:
+        weightSentences = data[data['cluster'] == cluster_id][['comment_raw', 'comment_clean']]
+        weights = []
+        for comment_clean in weightSentences['comment_clean']:
             weightFreq = 0
-            for item in comment:
+            for item in comment_clean:
                 weightFreq += freqdist[item]
-            weightSentences.append((comment, weightFreq))
+            weights.append(weightFreq)
+        weightSentences['weight'] = weights
         # sort list of weighted frequencies
-        weightSentences.sort(key=lambda tup: tup[1], reverse=True)
-        # clear output of frequency weights
-        repr_sentences = []
-        for item in weightSentences[0:n_sentences]:
-            repr_sentences.append(item[0])
-
-        return repr_sentences
+        repr_sentences = pd.DataFrame.nlargest(weightSentences, columns='weight', n=n_sentences)
+        # clear output of frequency weights etc
+        return repr_sentences['comment_raw'].to_list()
 
     elif method_sentences == "embedding":
         # filter incoming data by cluster_id
@@ -370,8 +368,8 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         cluster_data['dist'] = cluster_data['embedding'].apply(lambda x: sp.spatial.distance.cosine(x, mean_embedding))
         # find n representative sentences with smallest distance
         repr_sentences = pd.DataFrame.nsmallest(cluster_data, columns='dist', n=n_sentences)
-
-        return repr_sentences['comment_clean'].array
+        # clean output
+        return repr_sentences['comment_raw'].to_list()
 
 def get_label(keywords, labels, cluster_id, model):
     if labels == 'top_5_words':
