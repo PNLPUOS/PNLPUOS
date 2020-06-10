@@ -150,6 +150,7 @@ class HyperparameterTuning:
         # store relevant metrics
         self.score_dict.update({n_node: {'silhouette': score,
                                          'outliers': n_outliers}})
+        # save score in mongo
         memeory_dict["grid_node"] = n_node
         memeory_dict["score"].update({'silhouette': float(score),
                                       'outliers': n_outliers})
@@ -221,22 +222,31 @@ class HyperparameterTuning:
             grid = [self.pipeline_grid[n_config]
                     for n_config in self.best_tuning_configs]
 
+
         for n, node in enumerate(grid):
             grid_search_data = processed_data
+
+            # create initial dict
+            # going to be forwarded to mongoDB
             mongo_dict = {
                 "mode": grid_type,
                 "parameters": {},
                 "score": {},
                 "grid_id": MONGO.grid_id
             }
+
             print(f"\nRunning grid node {n+1} of {len(grid)}:")
             for pipeline_step in node:
                 print(f"\nCurrent step: {self.algorithms[pipeline_step]}")
+
                 mongo_dict["parameters"].update({self.algorithms[pipeline_step]:{}})
+
                 print("Current configuration:")
                 for params in node[pipeline_step]:
                     print(f"{params}: {node[pipeline_step][params]}")
+
                     mongo_dict["parameters"][self.algorithms[pipeline_step]].update({params:node[pipeline_step][params]})
+
                 grid_search_data = self.pipeline_components[pipeline_step](grid_search_data,
                                                                             self.algorithms[pipeline_step],
                                                                             node[pipeline_step])
