@@ -9,6 +9,12 @@ import random
 from itertools import product
 from collections import Counter
 from operator import itemgetter
+import datetime
+from pymongo import errors
+
+from topic_modelling_utils.mongo_accessor import MongoAccessor
+
+MONGO = MongoAccessor('pipeline_configurations')
 
 class HyperparameterTuning:
     """
@@ -110,7 +116,8 @@ class HyperparameterTuning:
     def evaluate_node(self,
                       values: List,
                       processed_data: List,
-                      n_node: int):
+                      n_node: int,
+                      memeory_dict: Dict):
         """
         every node of the grid is now evaluated
         :param values:
@@ -143,6 +150,9 @@ class HyperparameterTuning:
         # store relevant metrics
         self.score_dict.update({n_node: {'silhouette': score,
                                          'outliers': n_outliers}})
+        memeory_dict["grid_node"] = n_node
+        memeory_dict["score"].update({'silhouette': float(score),
+                                      'outliers': n_outliers})
 
 
     def calculate_optimizer(self, params: List, config:List):
@@ -213,16 +223,32 @@ class HyperparameterTuning:
 
         for n, node in enumerate(grid):
             grid_search_data = processed_data
+            mongo_dict = {
+                "mode": grid_type,
+                "parameters": {},
+                "score": {},
+                "grid_id": MONGO.grid_id
+            }
             print(f"\nRunning grid node {n+1} of {len(grid)}:")
             for pipeline_step in node:
                 print(f"\nCurrent step: {self.algorithms[pipeline_step]}")
+                mongo_dict["parameters"].update({self.algorithms[pipeline_step]:{}})
                 print("Current configuration:")
                 for params in node[pipeline_step]:
                     print(f"{params}: {node[pipeline_step][params]}")
+                    mongo_dict["parameters"][self.algorithms[pipeline_step]].update({params:node[pipeline_step][params]})
                 grid_search_data = self.pipeline_components[pipeline_step](grid_search_data,
                                                                             self.algorithms[pipeline_step],
                                                                             node[pipeline_step])
-            self.evaluate_node(processed_data, grid_search_data, n)
+            self.evaluate_node(processed_data, grid_search_data, n, mongo_dict)
+
+            mongo_dict.update({"timestamp": datetime.datetime.now()})
+
+            try:
+                MONGO.write(mongo_dict)
+            except errors.InvalidDocument:
+                print("Invalid mongo input:")
+                print(mongo_dict)
 
 
     def run_on_test_set(self,
