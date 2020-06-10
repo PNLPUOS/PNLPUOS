@@ -24,6 +24,7 @@ import _pickle
 from collections import Counter
 import time
 import itertools
+import math
 
 # tuning class
 from topic_modelling_utils.grid_search import HyperparameterTuning
@@ -465,8 +466,9 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                 {'dim_reduction':
                      {'function':reduce_dimensions,
                       'parameters':{
-                         'metric':['cosine'],
-                         'n_neighbors':[20]
+                         'metric':['cosine', 'canberra', 'minkowski'],
+                         'n_neighbors':[10, 20, 40],
+                         'min_dist': [0.0, 0.1, 0.25, 0.5]
                      },
                      'name': 'UMAP'}
                  }
@@ -480,14 +482,16 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
 
         if cluster_algorithm == 'hdbscan':
             """parameters['cluster__metric'] = ['euclidean', 'cosine']"""
+            log_n = int(math.log(clustering_data.shape[0]))
             pipeline.update(
                 {'cluster_algorithm':
                      {'function': get_cluster_ids,
                       'parameters': {
                           'alpha': [0.1],
                            'leaf_size': [40],
-                           'metric': ['euclidean'],
-                           'min_cluster_size': [100]
+                           'min_samples': [None, 1, log_n],
+                           'metric': ['euclidean', 'canberra'],
+                           'min_cluster_size': [10, 60, 80, 100]
                       },
                       'name': cluster_algorithm}
                  }
@@ -509,8 +513,18 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             )
 
         if cluster_algorithm == 'agglomerative':
-            # TODO: Add parameters.
-            pass
+            pipeline.update(
+                {'cluster_algorithm':
+                    {'function': get_cluster_ids,
+                     'parameters': {
+                         'affinity': ['cosine', 'euclidean'],
+                         'linkage': ['complete', 'average', 'single'],
+                         'threshold': [0.1, 0.25, 0.5]
+                       },
+                     'name': cluster_algorithm
+                     }
+                }
+            )
 
         """pipeline.append(('cluster', get_cluster_ids))"""
 
