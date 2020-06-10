@@ -24,6 +24,7 @@ import _pickle
 from collections import Counter
 import time
 import itertools
+import math
 
 # tuning class
 from topic_modelling_utils.grid_search import HyperparameterTuning
@@ -346,78 +347,6 @@ def get_word_frequency(comments: pd.Series) -> Dict:
 
     return word_frequency
 
-def silhouette_coef(values, clusters):
-    '''
-    From values and cluster assignments, computes a clustering evaluation as
-    mean silhouette score.
-    - param values: np array
-    - param clusters: np array
-    '''
-    silhouette = silhouette_score(values, clusters, metric='cosine')
-    print(f'Silhouette score: {round(silhouette, 3)}')
-    # TODO: Integrate additional metric modifications.
-        # IDEAS: silhouette, ssquare, outliers, n_clusters
-
-    return silhouette
-
-
-def grid_search(data, pipeline, parameters, metric=silhouette_coef):
-    '''
-    Grid search to identify best set of hyperparameters.
-    - param data: pd Series
-    - param pipeline: list[function]
-    - param parameters: dict[str:list]
-    - param metric: function
-    '''
-    # Reformat parameters and compute all permutations for param_grid.
-    param_grid = [element for element in itertools.product(
-                            *[[{name.split('__')[0]: (name.split('__')[1], param)}
-                                        for param in params] for name, params in parameters.items()])]
-
-    # Store the results in a dictionary.
-    results = {}
-    data_reduced = None
-    # Iterate through the configurations.
-    for config in range(len(param_grid)):
-        print(f'\nTesting configuration {config+1}/{len(param_grid)+1}')
-        # Reformat the current configuration as a flat dict that can be mapped to the pipes.
-        flat_dict = {}
-        for param in param_grid[config]:
-            key = list(param.keys())[0]
-            value = list(param.values())[0]
-            if key not in flat_dict:
-                flat_dict[key] = [value]
-            else:
-                flat_dict[key].append(value)
-
-        # Load the unprocessed data.
-        data_unprocessed = data
-        for name, function in pipeline:
-            try:
-                # Get parameters for the current step in the pipeline.
-                param = dict(flat_dict[name])
-            except KeyError as e:
-                # Error handling for steps that do not take parameters.
-                param = {}
-            # Run current pipe on the data and udpate the processed data.
-            data_unprocessed = function(data_unprocessed, **param)
-            if name == 'dim_red':
-                # Extract reduced data if dim_red performed.
-                data_reduced = data_unprocessed
-
-        data_processed = data_unprocessed
-        # Score the processed data.
-        score = silhouette_coef(data, data_processed)
-        # Format the results and update dictionary.
-        results[config] = {'results': data_processed, 'score': score}
-
-    # Sort to determine best configuration.
-    best = sorted(results.items(), key=lambda x: x[1]['score'], reverse=False)[0][0]
-    best_results, score = results[best]['results'], results[best]['score']
-    print(f'\nBest configuration: {best}')
-
-    return best_results, score, data_reduced
-
 
 def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reduction, outliers, run_grid_search):
     """
@@ -537,8 +466,9 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                 {'dim_reduction':
                      {'function':reduce_dimensions,
                       'parameters':{
-                         'metric':['cosine'],
-                         'n_neighbors':[20]
+                         'metric':['cosine', 'canberra', 'minkowski'],
+                         'n_neighbors':[10, 20, 40],
+                         'min_dist': [0.0, 0.1, 0.25, 0.5]
                      },
                      'name': 'UMAP'}
                  }
@@ -552,14 +482,16 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
 
         if cluster_algorithm == 'hdbscan':
             """parameters['cluster__metric'] = ['euclidean', 'cosine']"""
+            log_n = int(math.log(clustering_data.shape[0]))
             pipeline.update(
                 {'cluster_algorithm':
                      {'function': get_cluster_ids,
                       'parameters': {
                           'alpha': [0.1],
                            'leaf_size': [40],
-                           'metric': ['euclidean'],
-                           'min_cluster_size': [100]
+                           'min_samples': [None, 1, log_n],
+                           'metric': ['euclidean', 'canberra'],
+                           'min_cluster_size': [10, 60, 80, 100]
                       },
                       'name': cluster_algorithm}
                  }
@@ -581,8 +513,18 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             )
 
         if cluster_algorithm == 'agglomerative':
-            # TODO: Add parameters.
-            pass
+            pipeline.update(
+                {'cluster_algorithm':
+                    {'function': get_cluster_ids,
+                     'parameters': {
+                         'affinity': ['cosine', 'euclidean'],
+                         'linkage': ['complete', 'average', 'single'],
+                         'threshold': [0.1, 0.25, 0.5]
+                       },
+                     'name': cluster_algorithm
+                     }
+                }
+            )
 
         """pipeline.append(('cluster', get_cluster_ids))"""
 

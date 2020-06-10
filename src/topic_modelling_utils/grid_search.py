@@ -9,6 +9,8 @@ import random
 from itertools import product
 from collections import Counter
 from operator import itemgetter
+import csv
+import os.path
 import datetime
 from pymongo import errors
 
@@ -123,6 +125,7 @@ class HyperparameterTuning:
         :param values:
         :param processed_data:
         :param n_node:
+        :param memeory_dict:
         :return:
         """
         # store a metric for evaluation
@@ -154,6 +157,8 @@ class HyperparameterTuning:
         memeory_dict["grid_node"] = n_node
         memeory_dict["score"].update({'silhouette': float(score),
                                       'outliers': n_outliers})
+
+        return score, n_clusters, n_outliers
 
 
     def calculate_optimizer(self, params: List, config:List):
@@ -199,6 +204,34 @@ class HyperparameterTuning:
         return best_configs
 
 
+    def log_node(self, n, node, score, n_clusters, n_outliers):
+        """
+        log node configuration and results
+        :param node: dict (pipeline steps and values)
+        :return:
+        """
+        filename = 'grid_search_logs.csv'
+        file_exists = os.path.isfile(filename)
+        fields = ['node', 'score', 'n_clusters', 'n_outliers']
+        parameters = [n+1, score, n_clusters, n_outliers]
+
+        for pipeline_step in node:
+            for params in node[pipeline_step]:
+                field = self.algorithms[pipeline_step] + '__' + params
+                param = node[pipeline_step][params]
+                fields.append(field)
+                parameters.append(param)
+
+        with open(filename, 'a', newline='') as f:
+            fieldnames = fields
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()
+
+            node_dict = dict(zip(fields, parameters))
+            writer.writerow(node_dict)
+
+
     def perform_grid_search(self,
                             grid_type: str="tuning"):
         """
@@ -221,7 +254,6 @@ class HyperparameterTuning:
             processed_data = self.test_data
             grid = [self.pipeline_grid[n_config]
                     for n_config in self.best_tuning_configs]
-
 
         for n, node in enumerate(grid):
             grid_search_data = processed_data
@@ -250,10 +282,18 @@ class HyperparameterTuning:
                 grid_search_data = self.pipeline_components[pipeline_step](grid_search_data,
                                                                             self.algorithms[pipeline_step],
                                                                             node[pipeline_step])
-            self.evaluate_node(processed_data, grid_search_data, n, mongo_dict)
 
+            score, n_clusters, n_outliers = self.evaluate_node(processed_data,
+                                                               grid_search_data,
+                                                               n,
+                                                               mongo_dict)
+
+            self.log_node(n, node, score, n_clusters, n_outliers)
+
+            # add a timestamp for db
             mongo_dict.update({"timestamp": datetime.datetime.now()})
 
+            # forward the information to mongoDB
             try:
                 MONGO.write(mongo_dict)
             except errors.InvalidDocument:
