@@ -312,7 +312,7 @@ def get_weighted_sentence_vectors(sentence_vectors: pd.Series,
         sentence_length = len(word_vectors)
         for vec, tok in zip(word_vectors, tokens):
             # Calculate smooth inverse word frequency with tfidf frequency.
-            doc_frequency = Counter(tokens)[tok] / len(tokens)
+            doc_frequency = Counter(tokens)[tok] #/ len(tokens)
             tfidf = word_frequency[tok] * doc_frequency
             a_value = a / (a + tfidf)
             # Adjust new vector according to product of original and frequency.
@@ -473,7 +473,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                            'min_samples': [None, 1, log_n],
                            'metric': ['euclidean', 'canberra'],
                            'min_cluster_size': [10, 30, 80, 100],
-                           'max_eps': 0.3
+                           'max_eps': [0.3]
                       },
                       'name': cluster_algorithm}
                  }
@@ -491,7 +491,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                            'min_samples': [None, 1, log_n],
                            'metric': ['euclidean', 'canberra'],
                            'min_cluster_size': [10, 30, 80, 100],
-                           'cluster_selection_epsilon': 0.3
+                           'cluster_selection_epsilon': [0.3]
                       },
                       'name': cluster_algorithm}
                  }
