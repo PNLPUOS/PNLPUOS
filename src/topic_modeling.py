@@ -366,9 +366,9 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
 
     try:
     # Load embeddings if already calculated.
-        print('Loading embeddings ...')
+        print(f'Loading {embeddings} embeddings ...')
         if embeddings == "fasttext":
-            embedding_file = "_mean_embeddings"
+            embedding_file = "./topic_modeling_embeddings/_mean_embeddings_fasttext"
         elif embeddings == "bert":
             embedding_file = "./topic_modeling_embeddings/bert_embeddings.pickle"
 

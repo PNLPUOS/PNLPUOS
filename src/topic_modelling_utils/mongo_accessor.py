@@ -45,6 +45,8 @@ class MongoAccessor:
         :return:
         """
         try:
+            print(f"\nWriting to MongoDB collection "
+                  f"{self.collection_name}...")
             if isinstance(item, list):
                 self.collection.insert_many(item)
             else:
