@@ -38,15 +38,8 @@ def get_fasttext_embeddings(data: pd.DataFrame) -> pd.Series:
     # Load FastText common crawl model.
     model = fasttext.load_model('crawl-300d-2M-subword.bin')
     # Get embeddings for each word for each comment.
-    return data['comment'].apply(lambda comment: [model[tok] for tok in comment] if len(comment) > 0 else [])
+    return data.apply(lambda comment: [model[tok] for tok in comment] if len(comment) > 0 else [])
 
-
-def get_word2vec_embeddings(data):
-    """
-    Get embeddings from word2vec GoogleNews model.
-    - param data: pd dataframe
-    """
-    pass
 
 
 def bert_preprocessing(data: List[str]) -> List[torch.tensor]:
@@ -65,8 +58,7 @@ def bert_preprocessing(data: List[str]) -> List[torch.tensor]:
         # Convert to torch tensor.
         tensor = torch.tensor([ids])
         all_tensors.append(tensor)
-    # all_tensors: representation of each input comment
-    #              in an embedding space
+    # all_tensors: representation of each input comment in an embedding space
     return all_tensors
 
 
@@ -169,7 +161,7 @@ def reduce_dimensions(clustering_data: List,
 
     if reduction_algorithm == "UMAP":
         default_param = {
-            'metric': 'euclidean',
+            'metric': 'cosine',
             'random_state': 42,
             'min_dist': 0.0,
             'spread': 5,
@@ -209,6 +201,7 @@ def get_cluster_ids(clustering_data, cluster_algorithm="hdbscan", parameter_conf
             'metric': 'euclidean',
             'min_cluster_size': 100,
             'min_samples': None,
+            'cluster_selection_epsilon': 0.3,
             'p': None
         }
         param = get_arguments(default_param, parameter_config)
@@ -252,13 +245,13 @@ def get_cluster_ids(clustering_data, cluster_algorithm="hdbscan", parameter_conf
         default_param = {
             'algorithm': 'auto',
             'cluster_method': 'xi',
-            'eps': None,
+            'eps': 0.6,
             'predecessor_correction': True,
-            'leaf_size': 30,
+            'leaf_size': 40,
             'metric': 'euclidean',
             'metric_params': None,
-            'min_cluster_size': None,
-            'min_samples': 40,
+            'min_cluster_size': 30,
+            'min_samples': 100,
             'xi': 0.05,
             'n_jobs': None
         }
@@ -318,8 +311,10 @@ def get_weighted_sentence_vectors(sentence_vectors: pd.Series,
         new_vector = np.zeros(word_vectors[0].shape)
         sentence_length = len(word_vectors)
         for vec, tok in zip(word_vectors, tokens):
-            # Calculate smooth inverse word frequency.
-            a_value = a / (a + word_frequency[tok])
+            # Calculate smooth inverse word frequency with tfidf frequency.
+            doc_frequency = Counter(tokens)[tok] #/ len(tokens)
+            tfidf = word_frequency[tok] * doc_frequency
+            a_value = a / (a + tfidf)
             # Adjust new vector according to product of original and frequency.
             new_vector = np.add(new_vector, np.multiply(a_value, vec))
 
@@ -327,23 +322,26 @@ def get_weighted_sentence_vectors(sentence_vectors: pd.Series,
         new_vector = np.divide(new_vector, sentence_length)
         sentences.append(new_vector)
 
-        # TODO: Use tf-idf vector for weighting.
-
     return sentences
 
 
 def get_word_frequency(comments: pd.Series) -> Dict:
     """
-    Get frequency of each word in the entire corpus.
+    Get document frequency of each word in the entire corpus.
     - param comments: pd Series
     """
     # Extract all tokens to a single list.
     vocab = list(set([word for comment in comments for word in comment]))
 
     word_frequency = {}
-    # Calculate the frequency across the entire corpus.
-    for word, count in Counter(vocab).items():
-        word_frequency[word] = count / len(vocab)
+    # Calculate the frequency across the entire corpus of documents.
+    for word in vocab:
+        doc_count = 0
+        for comment in comments:
+            if word in comment:
+                doc_count += 1
+
+        word_frequency[word] = math.log(len(comments) / doc_count)
 
     return word_frequency
 
@@ -365,8 +363,12 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     try:
     # Load embeddings if already calculated.
         print('Loading embeddings ...')
-        with open("_mean_embeddings", "rb") as fp:
-            # Export to file.
+        if embeddings == "fasttext":
+            embedding_file = "_mean_embeddings"
+        elif embeddings == "bert":
+            embedding_file = "./topic_modeling_embeddings/bert_embeddings.pickle"
+
+        with open(embedding_file, mode="rb") as fp:
             data['embedding'] = _pickle.load(fp)
 
     except FileNotFoundError as e:
@@ -375,13 +377,14 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         if embeddings == 'fasttext':
             data['embeddings'] = get_fasttext_embeddings(data['comment_clean'])
 
-        elif embeddings == 'word2vec':
-            data['embeddings'] = get_word2vec_embeddings(data['comment_clean'])
-
         elif embeddings == 'bert':
             # Preprocessing for bert and torch models
             torch_data = bert_preprocessing(data['comment_raw'])
             data['embeddings'] = get_bert_embeddings(torch_data)
+
+            print("\nSave BERT embeddings...")
+            with open("./topic_modeling_embeddings/bert_embeddings.pickle", mode="wb") as file_handle:
+                _pickle.dump(data['embeddings'], file_handle)
 
         else:
             print('Selected embeddings not supported.')
@@ -402,25 +405,20 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     # Apply additional preprocessing.
     clustering_data = np.array(data['embedding'].tolist())
 
-    """# Organize pipeline object to track hyperparameter trials.
-    pipeline = []
-    parameters = {}"""
-    # define the function steps performed in pipeline
-
-    #####################
-    # this pipeline sets something like a blueprint for
-    # the whole process. Its architecture should be very
-    # dynamic and easy to add components:
-    # each pipeline step gets a name (e.g. normalization)
-    # each step has three main parts:
-    # - function: performs step and is designed like the normalize_data
-    #             function so it should take three arguments:
-    #             data, algorithm and parameters in a dictionary
-    # - parameters: a dictionary which can be empty so the default
-    #               are set in the function itselfe or it is filled
-    #               (e.g. for grid search)
-    # - name: sets algorithm executed in the function
-    #####################
+    '''
+    this pipeline sets something like a blueprint for
+    the whole process. Its architecture should be very
+    dynamic and easy to add components:
+    each pipeline step gets a name (e.g. normalization)
+    each step has three main parts:
+    - function: performs step and is designed like the normalize_data
+                function so it should take three arguments:
+                data, algorithm and parameters in a dictionary
+    - parameters: a dictionary which can be empty so the default
+                  are set in the function itselfe or it is filled
+                  (e.g. for grid search)
+    - name: sets algorithm executed in the function
+    '''
 
     pipeline = {
         'normalization':
@@ -445,7 +443,6 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Append normalization step.
         if normalization:
             # Normalize values between 1 and 0.
-            """pipeline.append(('norm', MinMaxScaler(feature_range=[0, 1]).fit_transform))"""
             pipeline.update(
                 {'normalization':
                      {'function': normalize_data,
@@ -459,14 +456,12 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Append dimensionality reduction and test parameters.
         if dim_reduction:
             # Reduce dimensions for performance while maintaining majority of variance.
-            """pipeline.append(('dim_red', reduce_dimensions))
-            parameters['dim_red__metric'] = ['cosine', 'correlation']
-            parameters['dim_red__n_neighbors'] = [20, 30]"""
             pipeline.update(
                 {'dim_reduction':
                      {'function':reduce_dimensions,
                       'parameters':{
-                         'metric':['cosine', 'canberra', 'minkowski'],
+                         'metric':['cosine', 'canberra', 'euclidean'],
+                         'spread': [0.1, 1, 5, 10],
                          'n_neighbors':[10, 20, 40],
                          'min_dist': [0.0, 0.1, 0.25, 0.5]
                      },
@@ -475,13 +470,25 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             )
 
         # Append cluster pipe and test parameters.
-        """parameters['cluster__cluster_algorithm'] = [cluster_algorithm]"""
         if cluster_algorithm == 'optics':
-            """parameters['cluster__metric'] = ['canberra', 'cosine']
-            parameters['cluster__min_sample'] = [20, 30, 40]"""
+            # Hyperparameter ranges for optics.
+            log_n = int(math.log(clustering_data.shape[0]))
+            pipeline.update(
+                {'cluster_algorithm':
+                     {'function': get_cluster_ids,
+                      'parameters': {
+                           'leaf_size': [40],
+                           'min_samples': [None, 1, log_n],
+                           'metric': ['euclidean', 'canberra'],
+                           'min_cluster_size': [10, 30, 80, 100],
+                           'max_eps': [0.3]
+                      },
+                      'name': cluster_algorithm}
+                 }
+            )
 
         if cluster_algorithm == 'hdbscan':
-            """parameters['cluster__metric'] = ['euclidean', 'cosine']"""
+            # Hyperparameter ranges for hdbscan.
             log_n = int(math.log(clustering_data.shape[0]))
             pipeline.update(
                 {'cluster_algorithm':
@@ -491,13 +498,15 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                            'leaf_size': [40],
                            'min_samples': [None, 1, log_n],
                            'metric': ['euclidean', 'canberra'],
-                           'min_cluster_size': [10, 60, 80, 100]
+                           'min_cluster_size': [10, 30, 80, 100],
+                           'cluster_selection_epsilon': [0.3]
                       },
                       'name': cluster_algorithm}
                  }
             )
 
         if cluster_algorithm == 'kmeans':
+            # Hyperparameter ranges for kmeans.
             pipeline.update(
                 {'cluster_algorithm':
                     {'function': get_cluster_ids,
@@ -513,6 +522,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             )
 
         if cluster_algorithm == 'agglomerative':
+            # Hyperparameter ranges for agglomerative clustering.
             pipeline.update(
                 {'cluster_algorithm':
                     {'function': get_cluster_ids,
@@ -525,8 +535,6 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                      }
                 }
             )
-
-        """pipeline.append(('cluster', get_cluster_ids))"""
 
         # initialize the hyperparameter tuning class
         hyperparameter_tuning = HyperparameterTuning(
@@ -542,7 +550,6 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             optimize_for=['outliers']
         )
 
-    """cluster_ids, score, data_reduced = grid_search(clustering_data, pipeline, parameters, metric=silhouette_coef)"""
     if len(optimal_configurations) > 0:
         for component in pipeline:
             pipeline[component]['parameters'].update(optimal_configurations[component])
@@ -568,6 +575,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Update the dataset to reflect the removed outliers.
         data = data[outlier_scores == 1]
 
+    cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
     # Append the cluster ids to the dataframe.
     data['cluster'] = cluster_ids
     n_clusters = data['cluster'].nunique()
