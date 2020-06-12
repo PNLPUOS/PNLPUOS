@@ -88,7 +88,9 @@ def get_bert_embeddings(torch_data: List[torch.tensor]) -> List[np.array]:
             hidden_states = out[2]
             last_four_layers = [hidden_states[i] for i in (-1, -2, -3, -4)]
             cat_hidden_states = torch.cat(tuple(last_four_layers), dim=-1)
-            all_embeddings.append([emb for emb in cat_hidden_states.numpy().squeeze()])
+            #all_embeddings.append([emb for emb in cat_hidden_states.numpy().squeeze()])
+            cat_sentence_embedding = torch.mean(cat_hidden_states, dim=1).squeeze()
+            all_embeddings.append(cat_sentence_embedding.numpy())
             # track embedding process
             if i % 1000 == 0 and i != 0:
                 print(f"Embedded {i} of {n_tensors} sentences...")
