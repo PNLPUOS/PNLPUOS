@@ -16,7 +16,7 @@ from pymongo import errors
 
 from topic_modelling_utils.mongo_accessor import MongoAccessor
 
-MONGO = MongoAccessor('pipeline_configurations')
+MONGO = MongoAccessor()
 
 class HyperparameterTuning:
     """
@@ -233,15 +233,19 @@ class HyperparameterTuning:
 
 
     def perform_grid_search(self,
-                            grid_type: str="tuning"):
+                            grid_type: str="tuning",
+                            data_base: object=None):
         """
         actual grid search
         also used for evaluation on
         test set
+        :param data_base:
         :param grid_type: bool (tuning or test set)
         :return:
         """
         grid = dict()
+        processed_data = None
+
         if grid_type == "tuning":
             processed_data = self.tuning_data
             grid = self.pipeline_grid
@@ -264,7 +268,7 @@ class HyperparameterTuning:
                 "mode": grid_type,
                 "parameters": {},
                 "score": {},
-                "grid_id": MONGO.grid_id
+                "grid_id": data_base.grid_id
             }
 
             print(f"\nRunning grid node {n+1} of {len(grid)}:")
@@ -295,7 +299,7 @@ class HyperparameterTuning:
 
             # forward the information to mongoDB
             try:
-                MONGO.write(mongo_dict)
+                data_base.write(mongo_dict)
             except errors.InvalidDocument:
                 print("Invalid mongo input:")
                 print(mongo_dict)
@@ -303,13 +307,17 @@ class HyperparameterTuning:
 
     def run_on_test_set(self,
                         top_n: int=5,
-                        optimize_for: List[str]=['outliers']) -> Dict:
+                        optimize_for: List[str]=None,
+                        data_base: object=None) -> Dict:
         """
         evaluate the top n configs on the test set
+        :param data_base:
         :param top_n:
         :param optimize_for:
         :return:
         """
+        if optimize_for is None:
+            optimize_for = ['outliers']
         self.best_tuning_configs = self.get_top_n(top_n, optimize_for, optimizer="lowest")
 
         print(f"Top {top_n} configurations on tuning set_")
@@ -319,7 +327,7 @@ class HyperparameterTuning:
         print("\n##################")
         print("Evaluate on test set...")
         print("##################")
-        self.perform_grid_search(grid_type="testing")
+        self.perform_grid_search(grid_type="testing", data_base=data_base)
         best_on_test = self.get_top_n(1, optimize_for, optimizer="lowest")
 
         print("\n##################")

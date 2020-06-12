@@ -28,6 +28,10 @@ import math
 
 # tuning class
 from topic_modelling_utils.grid_search import HyperparameterTuning
+# data bass class
+from topic_modelling_utils.mongo_accessor import MongoAccessor
+
+MONGO = MongoAccessor()
 
 
 def get_fasttext_embeddings(data: pd.DataFrame) -> pd.Series:
@@ -542,8 +546,12 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             pipeline
         )
 
+        # define collection the parameter configurations
+        # should be saved in
+        MONGO.access_collection('parameter_configurations')
+
         # performing the search on the parameter grid
-        hyperparameter_tuning.perform_grid_search()
+        hyperparameter_tuning.perform_grid_search(data_base=MONGO)
         # run the top 5 configurations on the test set
         optimal_configurations = hyperparameter_tuning.run_on_test_set(
             top_n=5,
