@@ -239,7 +239,12 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
     try:
     # Load embeddings if already calculated.
         print('Loading embeddings ...')
-        with open("_mean_embeddings", "rb") as fp:
+        if embeddings == "fasttext":
+            embedding_file = "_mean_embeddings"
+        elif embeddings == "bert":
+            embedding_file = "_mean_embeddings"
+
+        with open(embedding_file, mode="rb") as fp:
             # Export to file.
             data['embedding'] = _pickle.load(fp)
 
@@ -257,6 +262,11 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             torch_data = bert_preprocessing(data['comment_raw'])
             data['embeddings'] = get_bert_embeddings(torch_data)
 
+            print("\nSave BERT embeddings...")
+            with open("./topic_modeling_embeddings/bert_embeddings.pickle", mode="wb") as file_handle:
+                _pickle.dump(data['embeddings'], file_handle)
+            print("Exit code!")
+            exit()
         else:
             print('Selected embeddings not supported.')
             exit()
