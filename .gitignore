@@ -17,4 +17,4 @@ src/*.csv
 src/*.png
 src/credentials.py
 src/data
-src/topic_modeling_embeddings
+src/topic_modeling_embeddings/bert_embeddings.pickle
