@@ -17,6 +17,7 @@ from html.parser import HTMLParser
 # data
 import pandas as pd
 import numpy as np
+import scipy as sp
 
 # visualization
 import seaborn as sns
@@ -323,15 +324,54 @@ def get_keywords(data, keywords, cluster_id):
         pass
 
 
-def get_sentences(data, cluster_id):
-    """
-    TODO:
-    - parse the comments from the 'data' dataframe (pandas cheatseet in 'data' channel)
-    - extract the most representative sentences according to the chosen method (methods in trello card)
-    - return these sentences as str in appropriate data structure, eg a list
-    """
-    return None
+def get_sentences(data, cluster_id, method_sentences, n_sentences):
+    '''
+    :param data: dataframe with tokenized comments, cluster_ids, embeddings, and raw comments
+    :param cluster_id: id of cluster representative sentences are needed for
+    :param method_sentences: statistical (via word frequency) or embedding (central tendency of embeddings)
+    :param n_sentences: number of desired representative sentences
+    :return: tokenized comments of n most representative sentences
+    '''
 
+    if method_sentences == "statistical":
+        # create a general corpus of all tokenized comments
+        corpus = []
+        for comment_clean in data[data['cluster'] == cluster_id]['comment_clean']:
+            # separate items in comments
+            for item in comment_clean:
+                corpus.append(item)
+        # get frequency distribution of tokens
+        freqdist = nltk.FreqDist(corpus)
+        # get absolute number of most frequent word as normalizer
+        norm = freqdist.most_common(1)[0][1]
+        # get relative frequency distribution by normalizing with most common token
+        for key, value in freqdist.items():
+            freqdist[key] = value / norm
+        # calculate weighted frequency for each comment
+        weightSentences = data[data['cluster'] == cluster_id][['comment_raw', 'comment_clean']]
+        weights = []
+        for comment_clean in weightSentences['comment_clean']:
+            weightFreq = 0
+            for item in comment_clean:
+                weightFreq += freqdist[item]
+            weights.append(weightFreq)
+        weightSentences['weight'] = weights
+        # sort list of weighted frequencies
+        repr_sentences = pd.DataFrame.nlargest(weightSentences, columns='weight', n=n_sentences)
+        # clear output of frequency weights etc
+        return repr_sentences['comment_raw'].to_list()
+
+    elif method_sentences == "embedding":
+        # filter incoming data by cluster_id
+        cluster_data = data.loc[data['cluster'] == cluster_id]
+        # calculate overall mean sentence embedding for cluster
+        mean_embedding = np.mean(cluster_data['embedding'], axis=0)
+        # determine distance to mean for each embedding (cosine similarity)
+        cluster_data['dist'] = cluster_data['embedding'].apply(lambda x: sp.spatial.distance.cosine(x, mean_embedding))
+        # find n representative sentences with smallest distance
+        repr_sentences = pd.DataFrame.nsmallest(cluster_data, columns='dist', n=n_sentences)
+        # clean output
+        return repr_sentences['comment_raw'].to_list()
 
 def get_label(keywords, labels, cluster_id, model):
     if labels == 'top_5_words':
@@ -349,7 +389,7 @@ def export_graph(data, graph_path):
     ax.savefig(graph_path)
 
 
-def evaluation(data, keywords, labels):
+def evaluation(data, keywords, labels, method_sentences, n_sentences):
     print('Exporting results ...')
     data_path = 'data.csv'
     clusters_path = 'clusters.csv'
@@ -362,7 +402,7 @@ def evaluation(data, keywords, labels):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
         cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, model)
-        cluster_dict['sentences'] = get_sentences(data, cluster_id)
+        cluster_dict['sentences'] = get_sentences(data, cluster_id, method_sentences, n_sentences)
         cluster_info.append(cluster_dict)
 
     pd.DataFrame(cluster_info).to_csv(clusters_path)
