@@ -72,6 +72,8 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     data['comment_raw'] = series
     # Topic modeling.
     data = model_topics(data, **topic_model_param)
+    # TODO: Append sentiment information.
+    # data['sentiment'] = get_sentiment(data['comment_raw'])
     # Evaluate the results.
     data_path, clusters_path, graph_path = evaluation(data, **evaluation_param)
     # Log information to sacred.
