@@ -164,7 +164,7 @@ def reduce_dimensions(clustering_data: List,
             'metric': 'cosine',
             'random_state': 42,
             'min_dist': 0.0,
-            'spread': 5,
+            'spread': 1,
             'n_neighbors': 19
         }
         param = get_arguments(default_param, parameter_config)
@@ -312,7 +312,7 @@ def get_weighted_sentence_vectors(sentence_vectors: pd.Series,
         sentence_length = len(word_vectors)
         for vec, tok in zip(word_vectors, tokens):
             # Calculate smooth inverse word frequency with tfidf frequency.
-            doc_frequency = Counter(tokens)[tok] #/ len(tokens)
+            doc_frequency = Counter(tokens)[tok] / len(tokens)
             tfidf = word_frequency[tok] * doc_frequency
             a_value = a / (a + tfidf)
             # Adjust new vector according to product of original and frequency.
@@ -453,9 +453,10 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                      {'function':reduce_dimensions,
                       'parameters':{
                          'metric':['cosine', 'canberra', 'euclidean'],
-                         'spread': [0.1, 1, 5, 10],
+                         'random_state': [42],
+                         'spread': [1, 3, 4, 5, 6],
                          'n_neighbors':[10, 20, 40],
-                         'min_dist': [0.0, 0.1, 0.25, 0.5]
+                         'min_dist': [0.0]
                      },
                      'name': 'UMAP'}
                  }
