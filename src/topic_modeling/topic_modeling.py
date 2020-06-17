@@ -27,9 +27,9 @@ import itertools
 import math
 
 # tuning class
-from topic_modeling.topic_modelling_utils.grid_search import HyperparameterTuning
+from topic_modeling.topic_modeling_utils.grid_search import HyperparameterTuning
 # data bass class
-from topic_modeling.topic_modelling_utils.mongo_accessor import MongoAccessor
+from topic_modeling.topic_modeling_utils.mongo_accessor import MongoAccessor
 
 MONGO = MongoAccessor()
 

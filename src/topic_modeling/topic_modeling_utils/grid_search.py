@@ -14,7 +14,7 @@ import os.path
 import datetime
 from pymongo import errors
 
-from topic_modeling.topic_modelling_utils.mongo_accessor import MongoAccessor
+from topic_modeling.topic_modeling_utils.mongo_accessor import MongoAccessor
 
 MONGO = MongoAccessor()
 
@@ -210,7 +210,7 @@ class HyperparameterTuning:
         :param node: dict (pipeline steps and values)
         :return:
         """
-        filename = 'grid_search_logs.csv'
+        filename = 'outputs\\grid_search_logs.csv'
         file_exists = os.path.isfile(filename)
         fields = ['node', 'score', 'n_clusters', 'n_outliers']
         parameters = [n+1, score, n_clusters, n_outliers]

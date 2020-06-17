@@ -25,6 +25,8 @@ import seaborn as sns
 # misc
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer
+from datetime import datetime
+import os
 import re
 from gensim.models import Word2Vec
 import logging
@@ -401,11 +403,30 @@ def export_graph(data, graph_path):
     ax.savefig(graph_path)
 
 
+def make_outputs_directory():
+    '''
+    Prepares an outputs directory for the current run on train/tune.
+
+    Returns
+    ---------
+        output_path : str
+            Filepath of the outputs directory.
+    '''
+    # Format output path with unique datetime identifier.
+    now = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    output_path = f'outputs\\output-{now}'
+    # Create outputs directory.
+    os.mkdir(output_path)
+
+    return output_path
+
+
 def evaluation(data, keywords, labels, method_sentences, n_sentences):
     print('Exporting results ...')
-    data_path = 'data.csv'
-    clusters_path = 'clusters.csv'
-    graph_path = 'graph.png'
+    output_path = make_outputs_directory()
+    data_path = f'{output_path}\\data.csv'
+    clusters_path = f'{output_path}\\clusters.csv'
+    graph_path = f'{output_path}\\graph.png'
 
     model = build_w2v_model(data['comment_clean'].tolist())
     data.to_csv(data_path)
