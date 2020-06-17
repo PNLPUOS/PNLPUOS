@@ -28,6 +28,10 @@ import math
 
 # tuning class
 from topic_modelling_utils.grid_search import HyperparameterTuning
+# data bass class
+from topic_modelling_utils.mongo_accessor import MongoAccessor
+
+MONGO = MongoAccessor()
 
 
 def get_fasttext_embeddings(data: pd.DataFrame) -> pd.Series:
@@ -84,7 +88,10 @@ def get_bert_embeddings(torch_data: List[torch.tensor]) -> List[np.array]:
             hidden_states = out[2]
             last_four_layers = [hidden_states[i] for i in (-1, -2, -3, -4)]
             cat_hidden_states = torch.cat(tuple(last_four_layers), dim=-1)
-            all_embeddings.append([emb for emb in cat_hidden_states.numpy().squeeze()])
+            cat_sentence_embedding = torch.mean(cat_hidden_states, dim=1).squeeze()
+            all_embeddings.append(cat_sentence_embedding.numpy())
+            #cat_hidden_states = torch.cat(tuple(last_four_layers), dim=-1)
+            #all_embeddings.append([emb for emb in cat_hidden_states.numpy().squeeze()])
             # track embedding process
             if i % 1000 == 0 and i != 0:
                 print(f"Embedded {i} of {n_tensors} sentences...")
@@ -362,37 +369,47 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
 
     try:
     # Load embeddings if already calculated.
-        with open("_mean_embeddings", "rb") as fp:
-            # Export to file.
-            print('Loading embeddings ...')
+        print(f'Loading {embeddings} embeddings ...')
+        if embeddings == "fasttext":
+            embedding_file = "./topic_modeling_embeddings/_mean_embeddings_fasttext"
+        elif embeddings == "bert":
+            embedding_file = "./topic_modeling_embeddings/bert_embeddings.pickle"
+
+        with open(embedding_file, mode="rb") as fp:
             data['embedding'] = _pickle.load(fp)
 
     except FileNotFoundError as e:
         # Compute embeddings if not calculated.
         print(f'Getting embeddings: {embeddings} ...\n')
         if embeddings == 'fasttext':
-            data['embeddings'] = get_fasttext_embeddings(data['comment_clean'])
+            data['embedding'] = get_fasttext_embeddings(data['comment_clean'])
+
+            # Get mean embeddings.
+            print('Computing weighted mean embeddings ...')
+            # Compute word frequency for weighted sentence vectors.
+            word_frequency = get_word_frequency(data['comment_clean'])
+            # Compute sentence embeddings as weighted average of tokens.
+            data['embeddings'] = get_weighted_sentence_vectors(data['embeddings'], data['comment_clean'],
+                                                               word_frequency)
+            # Rename column.
+            data.rename(columns={'embeddings': 'embedding'}, inplace=True)
+            # Store to accelerate multiple trials.
+            with open("_mean_embeddings", "wb") as fp:
+                _pickle.dump(data['embedding'].tolist(), fp)
 
         elif embeddings == 'bert':
             # Preprocessing for bert and torch models
             torch_data = bert_preprocessing(data['comment_raw'])
-            data['embeddings'] = get_bert_embeddings(torch_data)
+            data['embedding'] = get_bert_embeddings(torch_data)
+
+            print("\nSave BERT embeddings...")
+            with open("./topic_modeling_embeddings/bert_embeddings.pickle", mode="wb") as file_handle:
+                _pickle.dump(data['embedding'], file_handle)
 
         else:
             print('Selected embeddings not supported.')
             exit()
 
-        # Get mean embeddings.
-        print('Computing weighted mean embeddings ...')
-        # Compute word frequency for weighted sentence vectors.
-        word_frequency = get_word_frequency(data['comment_clean'])
-        # Compute sentence embeddings as weighted average of tokens.
-        data['embeddings'] = get_weighted_sentence_vectors(data['embeddings'], data['comment_clean'], word_frequency)
-        # Rename column.
-        data.rename(columns={'embeddings': 'embedding'}, inplace=True)
-        # Store to accelerate multiple trials.
-        with open("_mean_embeddings", "wb") as fp:
-            _pickle.dump(data['embedding'].tolist(), fp)
 
     # Apply additional preprocessing.
     clustering_data = np.array(data['embedding'].tolist())
@@ -535,8 +552,12 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             pipeline
         )
 
+        # define collection the parameter configurations
+        # should be saved in
+        MONGO.access_collection('parameter_configurations')
+
         # performing the search on the parameter grid
-        hyperparameter_tuning.perform_grid_search()
+        hyperparameter_tuning.perform_grid_search(data_base=MONGO)
         # run the top 5 configurations on the test set
         optimal_configurations = hyperparameter_tuning.run_on_test_set(
             top_n=5,
@@ -568,6 +589,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Update the dataset to reflect the removed outliers.
         data = data[outlier_scores == 1]
 
+    cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
     # Append the cluster ids to the dataframe.
     data['cluster'] = cluster_ids
     n_clusters = data['cluster'].nunique()

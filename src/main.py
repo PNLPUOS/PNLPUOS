@@ -52,6 +52,8 @@ def config():
 
             'keywords': 'tfidf',
             'labels': 'mean_projection',
+            'method_sentences': 'embedding',
+            'n_sentences': 3
 
     }
 
