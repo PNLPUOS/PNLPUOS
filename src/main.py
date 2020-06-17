@@ -1,5 +1,5 @@
 # pnlp
-from topic_modeling import model_topics
+from topic_modeling.topic_modeling import model_topics
 from utilities import preprocessing, evaluation
 from sentiment_classifier import *
 from credentials import username, password
