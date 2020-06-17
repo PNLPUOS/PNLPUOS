@@ -171,7 +171,7 @@ def reduce_dimensions(clustering_data: List,
             'metric': 'cosine',
             'random_state': 42,
             'min_dist': 0.0,
-            'spread': 1,
+            'spread': 4,
             'n_neighbors': 19
         }
         param = get_arguments(default_param, parameter_config)
@@ -382,7 +382,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Compute embeddings if not calculated.
         print(f'Getting embeddings: {embeddings} ...\n')
         if embeddings == 'fasttext':
-            data['embedding'] = get_fasttext_embeddings(data['comment_clean'])
+            data['embeddings'] = get_fasttext_embeddings(data['comment_clean'])
 
             # Get mean embeddings.
             print('Computing weighted mean embeddings ...')
@@ -523,7 +523,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                      'parameters': {
                          'n_clusters': [15, 20, 25],
                          'max_iter': [100, 150],
-                         'init': 'k-means++',
+                         'init': ['k-means++'],
                          'n_init': [1, 2]
                        },
                      'name': cluster_algorithm
@@ -561,7 +561,8 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # run the top 5 configurations on the test set
         optimal_configurations = hyperparameter_tuning.run_on_test_set(
             top_n=5,
-            optimize_for=['outliers']
+            optimize_for=['outliers'],
+            data_base=MONGO
         )
 
     if len(optimal_configurations) > 0:
@@ -589,7 +590,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Update the dataset to reflect the removed outliers.
         data = data[outlier_scores == 1]
 
-    cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
+    # cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
     # Append the cluster ids to the dataframe.
     data['cluster'] = cluster_ids
     n_clusters = data['cluster'].nunique()

@@ -39,19 +39,19 @@ def config():
     }
     topic_model_param = {
 
-            'embeddings': 'bert',
+            'embeddings': 'fasttext',
             'cluster_algorithm': 'hdbscan',
             'normalization': True,
             'dim_reduction': True,
             'outliers': 0.15,
-            'run_grid_search': True
+            'run_grid_search': False
 
     }
     sentiment = False
     evaluation_param = {
 
-            'keywords': 'tfidf',
-            'labels': 'mean_projection',
+            'keywords': 'frequency',
+            'labels': 'top_5_words',
             'method_sentences': 'embedding',
             'n_sentences': 3
 
@@ -63,6 +63,9 @@ def config():
 def run(experimenter, data_path, data_language, preprocessing_param, topic_model_param, evaluation_param, sentiment):
     # Load raw data.
     series = pd.read_csv(data_path, delimiter=';')['Comments']
+    # Extract first or second question only.
+    # series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
+    # series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
     # Preprocessing.
     data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
     # Append raw comments needed for specific methods.
@@ -73,7 +76,6 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     data_path, clusters_path, graph_path = evaluation(data, **evaluation_param)
     # Log information to sacred.
     ex.log_scalar('n_clusters', data['cluster'].nunique())
-    # TODO: ex.log_scalar(custom_eval_metric)
     ex.add_artifact(clusters_path)
 
     print(f'Please visit omniboard to view the experiment results. You may need to gain access to the MongoDB.\n\tURL: {url}')

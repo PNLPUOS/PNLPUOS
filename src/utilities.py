@@ -321,7 +321,18 @@ def get_keywords(data, keywords, cluster_id):
         return [key[0] for key in sorted(list(scores.items()), key=lambda x: x[1], reverse=True)]
 
     elif keywords == 'frequency':
-        pass
+        # create a general corpus of all tokenized comments
+        corpus = []
+        for comment_clean in data[data['cluster'] == cluster_id]['comment_clean']:
+            # separate items in comments
+            for item in comment_clean:
+                corpus.append(item)
+        # get frequency distribution of tokens
+        freqdist = nltk.FreqDist(corpus)
+        # get absolute number of most frequent word as normalizer
+        norm = freqdist.most_common(5)
+
+        return [item[0] for item in norm]
 
 
 def get_sentences(data, cluster_id, method_sentences, n_sentences):
@@ -359,7 +370,7 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         # sort list of weighted frequencies
         repr_sentences = pd.DataFrame.nlargest(weightSentences, columns='weight', n=n_sentences)
         # clear output of frequency weights etc
-        return repr_sentences['comment_raw'].to_list()
+        return repr_sentences['comment_raw'].tolist()
 
     elif method_sentences == "embedding":
         # filter incoming data by cluster_id
@@ -371,7 +382,8 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         # find n representative sentences with smallest distance
         repr_sentences = pd.DataFrame.nsmallest(cluster_data, columns='dist', n=n_sentences)
         # clean output
-        return repr_sentences['comment_raw'].to_list()
+        return repr_sentences['comment_raw'].tolist()
+
 
 def get_label(keywords, labels, cluster_id, model):
     if labels == 'top_5_words':
