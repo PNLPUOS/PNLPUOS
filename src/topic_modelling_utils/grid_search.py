@@ -11,7 +11,12 @@ from collections import Counter
 from operator import itemgetter
 import csv
 import os.path
+import datetime
+from pymongo import errors
 
+from topic_modelling_utils.mongo_accessor import MongoAccessor
+
+MONGO = MongoAccessor()
 
 class HyperparameterTuning:
     """
@@ -113,12 +118,14 @@ class HyperparameterTuning:
     def evaluate_node(self,
                       values: List,
                       processed_data: List,
-                      n_node: int):
+                      n_node: int,
+                      memeory_dict: Dict):
         """
         every node of the grid is now evaluated
         :param values:
         :param processed_data:
         :param n_node:
+        :param memeory_dict:
         :return:
         """
         # store a metric for evaluation
@@ -146,6 +153,10 @@ class HyperparameterTuning:
         # store relevant metrics
         self.score_dict.update({n_node: {'silhouette': score,
                                          'outliers': n_outliers}})
+        # save score in mongo
+        memeory_dict["grid_node"] = n_node
+        memeory_dict["score"].update({'silhouette': float(score),
+                                      'outliers': n_outliers})
 
         return score, n_clusters, n_outliers
 
@@ -222,15 +233,19 @@ class HyperparameterTuning:
 
 
     def perform_grid_search(self,
-                            grid_type: str="tuning"):
+                            grid_type: str="tuning",
+                            data_base: object=None):
         """
         actual grid search
         also used for evaluation on
         test set
+        :param data_base:
         :param grid_type: bool (tuning or test set)
         :return:
         """
         grid = dict()
+        processed_data = None
+
         if grid_type == "tuning":
             processed_data = self.tuning_data
             grid = self.pipeline_grid
@@ -246,28 +261,63 @@ class HyperparameterTuning:
 
         for n, node in enumerate(grid):
             grid_search_data = processed_data
+
+            # create initial dict
+            # going to be forwarded to mongoDB
+            mongo_dict = {
+                "mode": grid_type,
+                "parameters": {},
+                "score": {},
+                "grid_id": data_base.grid_id
+            }
+
             print(f"\nRunning grid node {n+1} of {len(grid)}:")
             for pipeline_step in node:
                 print(f"\nCurrent step: {self.algorithms[pipeline_step]}")
+
+                mongo_dict["parameters"].update({self.algorithms[pipeline_step]:{}})
+
                 print("Current configuration:")
                 for params in node[pipeline_step]:
                     print(f"{params}: {node[pipeline_step][params]}")
+
+                    mongo_dict["parameters"][self.algorithms[pipeline_step]].update({params:node[pipeline_step][params]})
+
                 grid_search_data = self.pipeline_components[pipeline_step](grid_search_data,
                                                                             self.algorithms[pipeline_step],
                                                                             node[pipeline_step])
-            score, n_clusters, n_outliers = self.evaluate_node(processed_data, grid_search_data, n)
+
+            score, n_clusters, n_outliers = self.evaluate_node(processed_data,
+                                                               grid_search_data,
+                                                               n,
+                                                               mongo_dict)
+
             self.log_node(n, node, score, n_clusters, n_outliers)
+
+            # add a timestamp for db
+            mongo_dict.update({"timestamp": datetime.datetime.now()})
+
+            # forward the information to mongoDB
+            try:
+                data_base.write(mongo_dict)
+            except errors.InvalidDocument:
+                print("Invalid mongo input:")
+                print(mongo_dict)
 
 
     def run_on_test_set(self,
                         top_n: int=5,
-                        optimize_for: List[str]=['outliers']) -> Dict:
+                        optimize_for: List[str]=None,
+                        data_base: object=None) -> Dict:
         """
         evaluate the top n configs on the test set
+        :param data_base:
         :param top_n:
         :param optimize_for:
         :return:
         """
+        if optimize_for is None:
+            optimize_for = ['outliers']
         self.best_tuning_configs = self.get_top_n(top_n, optimize_for, optimizer="lowest")
 
         print(f"Top {top_n} configurations on tuning set_")
@@ -277,7 +327,7 @@ class HyperparameterTuning:
         print("\n##################")
         print("Evaluate on test set...")
         print("##################")
-        self.perform_grid_search(grid_type="testing")
+        self.perform_grid_search(grid_type="testing", data_base=data_base)
         best_on_test = self.get_top_n(1, optimize_for, optimizer="lowest")
 
         print("\n##################")
