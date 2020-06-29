@@ -319,7 +319,7 @@ def get_weighted_sentence_vectors(sentence_vectors: pd.Series,
         sentence_length = len(word_vectors)
         for vec, tok in zip(word_vectors, tokens):
             # Calculate smooth inverse word frequency with tfidf frequency.
-            doc_frequency = Counter(tokens)[tok] / len(tokens)
+            doc_frequency = Counter(tokens)[tok] #/ len(tokens)
             tfidf = word_frequency[tok] * doc_frequency
             a_value = a / (a + tfidf)
             # Adjust new vector according to product of original and frequency.
@@ -429,21 +429,30 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
                   (e.g. for grid search)
     - name: sets algorithm executed in the function
     '''
-
-    pipeline = {
-        'normalization':
-            {'function': normalize_data,
-             'parameters': {},
-             'name': 'MinMaxScaler'},
-        'dim_reduction':
-             {'function': reduce_dimensions,
+    pipeline = {}
+    if normalization:
+        pipeline.update(
+            {'normalization':
+                 {'function': normalize_data,
+                  'parameters': {},
+                  'name': 'MinMaxScaler'}
+             }
+        )
+    if dim_reduction:
+        pipeline.update(
+            {'dim_reduction':
+                 {'function':reduce_dimensions,
+                  'parameters':{},
+                 'name': 'UMAP'}
+             }
+        )
+    pipeline.update(
+        {'cluster_algorithm':
+             {'function': get_cluster_ids,
               'parameters': {},
-              'name': 'UMAP'},
-        'cluster_algorithm':
-            {'function': get_cluster_ids,
-             'parameters': {},
-             'name': cluster_algorithm}
-    }
+              'name': cluster_algorithm}
+         }
+    )
 
     # defined by grid search or default in function
     optimal_configurations = dict()
@@ -579,19 +588,17 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         cluster_ids = pipeline_component(cluster_ids, component_name, component_parameters)
         if step == "dim_reduction":
             data_reduced = cluster_ids
+            # Update the dataset with the reduced data for later visualization.
+            data['PC1'] = [item[0] for item in data_reduced]
+            data['PC2'] = [item[1] for item in data_reduced]
 
-    # Update the dataset with the reduced data for later visualization.
-    data['PC1'] = [item[0] for item in data_reduced]
-    data['PC2'] = [item[1] for item in data_reduced]
-
-    if outliers:
+    if outliers and data_reduced:
         # Remove a certain percentage of outliers. Show the number of outliers.
         outlier_scores = LocalOutlierFactor(contamination=outliers).fit_predict(data_reduced)
         cluster_ids = cluster_ids[outlier_scores == 1]
         # Update the dataset to reflect the removed outliers.
         data = data[outlier_scores == 1]
 
-    # cluster_ids = get_cluster_ids(clustering_data, cluster_algorithm)
     # Append the cluster ids to the dataframe.
     data['cluster'] = cluster_ids
     n_clusters = data['cluster'].nunique()
