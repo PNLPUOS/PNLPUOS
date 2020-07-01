@@ -9,6 +9,7 @@ from nltk.tokenize import WhitespaceTokenizer
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
 #from porter2stemmer import Porter2Stemmer
+import src.spell_correction.spellcorrector as spellcorrector
 
 # html
 from bs4 import BeautifulSoup
@@ -226,6 +227,11 @@ def word_stemmer(surveyText):
     stemmer = PorterStemmer()
     return [stemmer.stem(i) for i in surveyText]
 
+def fix_spelling(surveyText):
+    sc = spellcorrector.SpellCorrector()
+    return sc.correct_errors(surveyText)
+
+
 '''
     Control the parameter by putting value of TRUE or FALSE according to requirements.
     Args : txt - Provided text for preprocessing
@@ -241,14 +247,17 @@ def word_stemmer(surveyText):
             stemming - Stemming any text
 '''
 
-def preprocessing(txt, punctuation= False, tokenize= False, stopwords= False, correct_apos= False,
-                  shortWords= False, specialCharacter= False, numbers= False, singleChar= False,
-                 lematization= False, stemming= False):
+def preprocessing(txt, punctuation= False, correct_spelling=False, tokenize= False, stopwords= False,
+                  correct_apos= False, shortWords= False, specialCharacter= False, numbers= False, singleChar= False,
+                  lematization= False, stemming= False):
 
     cleanedTxt = txt.apply(lambda x: remove_html(x))
 
     if punctuation:
         cleanedTxt = cleanedTxt.apply(lambda x:remove_punctuation(x))
+
+    if correct_spelling:
+        cleaned_Txt = cleanedTxt.apply(lambda x: fix_spelling(x))
 
     if tokenize:
         cleanedTxt = cleanedTxt.apply(lambda x:word_tokenize(x.lower()))
