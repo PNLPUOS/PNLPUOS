@@ -26,6 +26,7 @@ def config():
     preprocessing_param = {
 
             'punctuation': True,
+            'correct_spelling': False,
             'tokenize': True,
             'stopwords': True,
             'correct_apos': True,

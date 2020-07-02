@@ -9,7 +9,7 @@ from nltk.tokenize import WhitespaceTokenizer
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
 #from porter2stemmer import Porter2Stemmer
-import src.spell_correction.spellcorrector as spellcorrector
+import spell_correction.spellcorrector as spellcorrector
 
 # html
 from bs4 import BeautifulSoup
