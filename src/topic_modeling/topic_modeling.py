@@ -395,7 +395,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             data.rename(columns={'embeddings': 'embedding'}, inplace=True)
             # Store to accelerate multiple trials.
             print("\nSaving FastText embeddings ...")
-            with open("topic_modeling\\topic_modeling_embeddings\\_mean_embeddings_fasttext", "wb") as fp:
+            with open("./topic_modeling/topic_modeling_embeddings/_mean_embeddings_fasttext", "wb") as fp:
                 _pickle.dump(data['embedding'].tolist(), fp)
 
         elif embeddings == 'bert':
@@ -404,7 +404,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             data['embedding'] = get_bert_embeddings(torch_data)
 
             print("\nSaving BERT embeddings ...")
-            with open("topic_modeling\\topic_modeling_embeddings\\_mean_embeddings_bert", mode="wb") as file_handle:
+            with open("./topic_modeling/topic_modeling_embeddings/_mean_embeddings_bert", mode="wb") as file_handle:
                 _pickle.dump(data['embedding'], file_handle)
 
         else:
