@@ -40,7 +40,7 @@ class HyperparameterTuning:
             self.algorithms.update({step: pipeline[step]['name']})
 
         # perform data split for tuning and testing
-        self.tuning_data, self.test_data = self.split_data(data)
+        self.tuning_data = data
 
         # build the parameter grid
         # for the whole pipeline
@@ -50,28 +50,6 @@ class HyperparameterTuning:
 
         # store the results
         self.score_dict = dict()
-        self.best_tuning_configs = dict()
-
-
-    @staticmethod
-    def split_data(data: np.array, ratio: float = 0.8) -> Tuple:
-        """
-        perform a split in tuning and testing set
-        :param data:
-        :param ratio:
-        :return:
-        """
-        n_data = len(data)
-        random.seed(42)
-        random.shuffle(data)
-        split_length = int(n_data * ratio)
-        tuning = data[:split_length]
-        testing = data[split_length:]
-
-        print(f"Performed split: {split_length} training, "
-              f"{n_data - split_length} testing")
-
-        return tuning, testing
 
 
     @staticmethod
@@ -161,49 +139,6 @@ class HyperparameterTuning:
         return score, n_clusters, n_outliers
 
 
-    def calculate_optimizer(self, params: List, config:List):
-        """
-        here a function is implemented
-        calculation the general score
-        which is then optimized
-        :param params: parameters used for calculation
-        :param config:
-        :return:
-        """
-        #TODO: Come up with real calculation
-        #      now were just minimizing outliers
-        return self.score_dict[config]['outliers']
-
-
-    def get_top_n(self,
-                  n: int,
-                  objective: List,
-                  optimizer = "greatest") -> Dict:
-        """
-        find the top n configs based
-        on their resulting score
-        :param n:
-        :param objective:
-        :param optimizer:
-        :return:
-        """
-        optimized_dict = dict()
-        for config in self.score_dict:
-            optimized_value = self.calculate_optimizer(objective, config)
-            optimized_dict.update({config: optimized_value})
-
-        # either max or minimize score
-        if optimizer == "greatest":
-            reverse = True
-        else:
-            reverse = False
-
-        # select best configuration
-        best_configs = dict(sorted(optimized_dict.items(), key=itemgetter(1), reverse=reverse)[:n])
-
-        return best_configs
-
-
     def log_node(self, n, node, score, n_clusters, n_outliers):
         """
         log node configuration and results
@@ -233,31 +168,23 @@ class HyperparameterTuning:
 
 
     def perform_grid_search(self,
-                            grid_type: str="tuning",
-                            data_base: object=None):
+                            embedding_type: str,
+                            grid_type: str = "tuning",
+                            data_base: object = None):
         """
         actual grid search
-        also used for evaluation on
-        test set
+        :param embedding_type:
         :param data_base:
         :param grid_type: bool (tuning or test set)
         :return:
         """
-        grid = dict()
-        processed_data = None
 
-        if grid_type == "tuning":
-            processed_data = self.tuning_data
-            grid = self.pipeline_grid
+        processed_data = self.tuning_data
+        grid = self.pipeline_grid
 
-            print("\n##################")
-            print("Run grid search...")
-            print("##################")
-
-        if grid_type == "testing":
-            processed_data = self.test_data
-            grid = [self.pipeline_grid[n_config]
-                    for n_config in self.best_tuning_configs]
+        print("\n##################")
+        print("Run grid search...")
+        print("##################")
 
         for n, node in enumerate(grid):
             grid_search_data = processed_data
@@ -266,6 +193,7 @@ class HyperparameterTuning:
             # going to be forwarded to mongoDB
             mongo_dict = {
                 "mode": grid_type,
+                "embeddings": embedding_type,
                 "parameters": {},
                 "score": {},
                 "grid_id": data_base.grid_id
@@ -303,41 +231,3 @@ class HyperparameterTuning:
             except errors.InvalidDocument:
                 print("Invalid mongo input:")
                 print(mongo_dict)
-
-
-    def run_on_test_set(self,
-                        top_n: int=5,
-                        optimize_for: List[str]=None,
-                        data_base: object=None) -> Dict:
-        """
-        evaluate the top n configs on the test set
-        :param data_base:
-        :param top_n:
-        :param optimize_for:
-        :return:
-        """
-        if optimize_for is None:
-            optimize_for = ['outliers']
-        self.best_tuning_configs = self.get_top_n(top_n, optimize_for, optimizer="lowest")
-
-        print(f"Top {top_n} configurations on tuning set_")
-        for config in self.best_tuning_configs:
-            print(f"#-Config: {config} -> Score: {self.best_tuning_configs[config]}")
-
-        print("\n##################")
-        print("Evaluate on test set...")
-        print("##################")
-        self.perform_grid_search(grid_type="testing", data_base=data_base)
-        best_on_test = self.get_top_n(1, optimize_for, optimizer="lowest")
-
-        print("\n##################")
-        print("Best configuration on test set:")
-        print("##################\n")
-        for best_config in best_on_test:
-            for component in self.pipeline_grid[best_config]:
-                print(f"Component: {component}")
-                for parameter in self.pipeline_grid[best_config][component]:
-                    print(f"{parameter}: {self.pipeline_grid[best_config][component][parameter]}")
-                print("\n")
-
-            return self.pipeline_grid[best_config]
