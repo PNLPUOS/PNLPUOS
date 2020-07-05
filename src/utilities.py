@@ -27,6 +27,8 @@ import seaborn as sns
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 from datetime import datetime
+import fasttext
+import annoy
 import os
 import re
 from gensim.models import Word2Vec
@@ -307,22 +309,64 @@ def preprocessing(txt, punctuation= False, correct_spelling=False, tokenize= Fal
         filter_dict = init_filter_dict(cleanedTxt)
         cleanedTxt = cleanedTxt.apply(lambda x: extreme_filterer(x, filter_dict))
 
-
     return cleanedTxt
 
 
-def build_w2v_model(sentences):
-    model = Word2Vec(sentences=sentences,
-                        min_count=1,
-                         window=5,
-                         size=300,
-                         sample=6e-5,
-                         alpha=0.03,
-                         min_alpha=0.0007,
-                         negative=20,
-                         workers=3)
+def build_embedding_space(data):
+    '''
+    Uses annoy nn approximation library to build an
+    embedding space containing all words from the corpus
+    and the mean embeddings of each cluster.
 
-    return model
+    Parameters
+    ---------
+        data : pd.DataFrame
+            Dataframe containing all data, including
+            mean comment embeddings and token ids.
+
+    Returns
+    ---------
+        embedding_space : annoy
+            Annoy nn tree.
+    '''
+    # Create the annoy embedding space.
+    num_dimensions = data['embedding'].tolist()[0].size
+    # Get embeddings for each token in the corpus.
+    model = fasttext.load_model('topic_modeling\\crawl-300d-2M-subword.bin')
+    # Get embeddings for each word for each comment.
+    tok2emb = [(tok, model[tok]) for comment in data['comment_clean'] for tok in comment if len(comment) > 0]
+    # Remove duplicate tokens.
+    tok2emb = dict(tok2emb).items()
+
+    # Add all tokens from the dataset.
+    global index_to_token
+    index_to_token = {}
+    a = annoy.AnnoyIndex(num_dimensions, metric='angular')
+    for i, (token, embedding) in enumerate(tok2emb):
+        a.add_item(i, embedding)
+        index_to_token[i] = token
+
+    # Add cluster mean embeddings.
+    global index_to_cluster
+    global cluster_to_index
+    index_to_cluster = {}
+    cluster_to_index = {}
+    # Continue numbering.
+    j = i+1
+    for cluster_id in sorted(list(data['cluster'].unique())):
+        # filter incoming data by cluster_id
+        cluster_data = data.loc[data['cluster'] == cluster_id]
+        # calculate overall mean sentence embedding for cluster
+        mean_embedding = np.mean(cluster_data['embedding'], axis=0)
+        # add new entry based on mean embedding
+        a.add_item(j, mean_embedding)
+        index_to_cluster[j] = cluster_id
+        cluster_to_index[cluster_id] = j
+        j += 1
+
+    a.build(n_trees=100)
+
+    return a
 
 
 def get_keywords(data, keywords, cluster_id):
@@ -414,13 +458,17 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         return repr_sentences['comment_raw'].tolist()
 
 
-def get_label(keywords, labels, cluster_id, model):
+def get_label(keywords, labels, cluster_id, embedding_space):
     if labels == 'top_5_words':
         return ' '.join(keywords[:5])
 
     elif labels == 'mean_projection':
-        cluster_name, _ = model.most_similar(positive=keywords, topn=1)[0]
-        return cluster_name
+        cluster_name_index = embedding_space.get_nns_by_item(cluster_to_index[cluster_id], n=20)
+        for i in cluster_name_index:
+            try:
+                return index_to_token[i]
+            except KeyError:
+                continue
 
 
 def export_graph(data, graph_path):
@@ -455,13 +503,13 @@ def evaluation(data, keywords, labels, method_sentences, n_sentences):
     clusters_path = f'{output_path}\\clusters.csv'
     graph_path = f'{output_path}\\graph.png'
 
-    model = build_w2v_model(data['comment_clean'].tolist())
+    embedding_space = build_embedding_space(data)
     data.to_csv(data_path)
     cluster_info = []
     for cluster_id in sorted(list(data['cluster'].unique())):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
-        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, model)
+        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, embedding_space)
         cluster_dict['sentences'] = get_sentences(data, cluster_id, method_sentences, n_sentences)
         cluster_info.append(cluster_dict)
 

@@ -53,7 +53,7 @@ def config():
     evaluation_param = {
 
             'keywords': 'frequency',
-            'labels': 'top_5_words',
+            'labels': 'mean_projection',
             'method_sentences': 'embedding',
             'n_sentences': 3
 
@@ -66,8 +66,8 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     # Load raw data.
     series = pd.read_csv(data_path, delimiter=';') #['Comments']
     # Extract first or second question only.
-    # series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
-    series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
+    series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
+    # series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
     # Preprocessing.
     data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
     # Append raw comments needed for specific methods.
