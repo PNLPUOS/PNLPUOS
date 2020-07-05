@@ -458,12 +458,12 @@ def get_sentences(data, cluster_id, method_sentences, n_sentences):
         return repr_sentences['comment_raw'].tolist()
 
 
-def get_label(keywords, labels, cluster_id, embedding_space):
+def get_label(keywords, labels, cluster_id, embedding_space, max_cluster):
     if labels == 'top_5_words':
         return ' '.join(keywords[:5])
 
     elif labels == 'mean_projection':
-        cluster_name_index = embedding_space.get_nns_by_item(cluster_to_index[cluster_id], n=20)
+        cluster_name_index = embedding_space.get_nns_by_item(cluster_to_index[cluster_id], n=max_cluster+1)
         for i in cluster_name_index:
             try:
                 return index_to_token[i]
@@ -506,10 +506,11 @@ def evaluation(data, keywords, labels, method_sentences, n_sentences):
     embedding_space = build_embedding_space(data)
     data.to_csv(data_path)
     cluster_info = []
+    max_cluster = max(list(data['cluster'].unique()))
     for cluster_id in sorted(list(data['cluster'].unique())):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
-        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, embedding_space)
+        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, embedding_space, max_cluster)
         cluster_dict['sentences'] = get_sentences(data, cluster_id, method_sentences, n_sentences)
         cluster_info.append(cluster_dict)
 
