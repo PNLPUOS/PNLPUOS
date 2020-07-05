@@ -12,6 +12,7 @@ venv.bak/
 /.DS_Store
 src/__pycache__/
 src/sentiment_classifier/__pycache__/
+src/spell_correction/__pycache__/
 src/*.csv
 src/*.png
 src/credentials.py

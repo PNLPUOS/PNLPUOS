@@ -231,3 +231,9 @@ class HyperparameterTuning:
             except errors.InvalidDocument:
                 print("Invalid mongo input:")
                 print(mongo_dict)
+
+        # Retrieve best configuration based on silhouette score.
+        best_node = list(sorted(self.score_dict.items(),
+                                key=lambda x: x[1]['silhouette'], reverse=True))[0][0]
+
+        return grid[best_node]
