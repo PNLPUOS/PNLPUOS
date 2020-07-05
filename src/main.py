@@ -36,11 +36,12 @@ def config():
             'singleChar': True,
             'lematization': True,
             'stemming': False,
+            'filter_extremes': True,
 
     }
     topic_model_param = {
 
-            'embeddings': 'bert',
+            'embeddings': 'fasttext',
             'cluster_algorithm': 'hdbscan',
             'normalization': True,
             'dim_reduction': True,
@@ -63,10 +64,10 @@ def config():
 @ex.automain
 def run(experimenter, data_path, data_language, preprocessing_param, topic_model_param, evaluation_param, sentiment):
     # Load raw data.
-    series = pd.read_csv(data_path, delimiter=';')['Comments']
+    series = pd.read_csv(data_path, delimiter=';') #['Comments']
     # Extract first or second question only.
     # series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
-    # series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
+    series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
     # Preprocessing.
     data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
     # Append raw comments needed for specific methods.

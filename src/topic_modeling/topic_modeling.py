@@ -569,8 +569,8 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # performing the search on the parameter grid
         optimal_configuration = hyperparameter_tuning.perform_grid_search(data_base=MONGO, embedding_type=embeddings)
 
-    for component in pipeline:
-        pipeline[component]['parameters'].update(optimal_configuration[component])
+        for component in pipeline:
+            pipeline[component]['parameters'].update(optimal_configuration[component])
 
     # process data with optimal configuration (found by grid search)
     cluster_ids = clustering_data

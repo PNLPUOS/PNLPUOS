@@ -30,6 +30,7 @@ from datetime import datetime
 import os
 import re
 from gensim.models import Word2Vec
+from gensim.corpora import Dictionary
 import logging
 logging.getLogger("gensim.models").setLevel(logging.WARNING)
 
@@ -231,6 +232,19 @@ def fix_spelling(surveyText):
     sc = spellcorrector.SpellCorrector()
     return sc.correct_errors(surveyText)
 
+def init_filter_dict(cleanedTxt):
+    """Initialize id2txt dictionary to filter extremes."""
+    dct = Dictionary(cleanedTxt.tolist())
+    print(f'Total words before filter: {len(dct)}')
+    dct.filter_extremes(no_below=2, no_above=0.15)
+    print(f'Total words after filter: {len(dct)}')
+    return dct
+
+def extreme_filterer(surveyText, filter_dict):
+    """Filter extremes"""
+    docidx = filter_dict.doc2idx(surveyText)
+    return np.array(surveyText)[np.array(docidx) != -1].tolist()
+
 
 '''
     Control the parameter by putting value of TRUE or FALSE according to requirements.
@@ -249,7 +263,7 @@ def fix_spelling(surveyText):
 
 def preprocessing(txt, punctuation= False, correct_spelling=False, tokenize= False, stopwords= False,
                   correct_apos= False, shortWords= False, specialCharacter= False, numbers= False, singleChar= False,
-                  lematization= False, stemming= False):
+                  lematization= False, stemming= False, filter_extremes=False):
 
     cleanedTxt = txt.apply(lambda x: remove_html(x))
 
@@ -288,7 +302,11 @@ def preprocessing(txt, punctuation= False, correct_spelling=False, tokenize= Fal
 
     if stemming:
         cleanedTxt = cleanedTxt.apply(lambda x: word_stemmer(x))
-        #pass
+
+    if filter_extremes:
+        filter_dict = init_filter_dict(cleanedTxt)
+        cleanedTxt = cleanedTxt.apply(lambda x: extreme_filterer(x, filter_dict))
+
 
     return cleanedTxt
 
