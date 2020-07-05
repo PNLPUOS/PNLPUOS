@@ -371,9 +371,9 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         # Load embeddings if already calculated.
         print(f'Loading {embeddings} embeddings ...')
         if embeddings == "fasttext":
-            embedding_file = "topic_modeling\\topic_modeling_embeddings\\_mean_embeddings_fasttext"
+            embedding_file = "./topic_modeling/topic_modeling_embeddings/_mean_embeddings_fasttext"
         elif embeddings == "bert":
-            embedding_file = "topic_modeling\\topic_modeling_embeddings\\_mean_embeddings_bert"
+            embedding_file = "./topic_modeling/topic_modeling_embeddings/_mean_embeddings_bert"
 
         with open(embedding_file, mode="rb") as fp:
             data['embedding'] = _pickle.load(fp)
@@ -395,7 +395,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             data.rename(columns={'embeddings': 'embedding'}, inplace=True)
             # Store to accelerate multiple trials.
             print("\nSaving FastText embeddings ...")
-            with open("topic_modeling\\topic_modeling_embeddings\\_mean_embeddings_fasttext", "wb") as fp:
+            with open("./topic_modeling/topic_modeling_embeddings/_mean_embeddings_fasttext", "wb") as fp:
                 _pickle.dump(data['embedding'].tolist(), fp)
 
         elif embeddings == 'bert':
@@ -404,7 +404,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             data['embedding'] = get_bert_embeddings(torch_data)
 
             print("\nSaving BERT embeddings ...")
-            with open("topic_modeling\\topic_modeling_embeddings\\_mean_embeddings_bert", mode="wb") as file_handle:
+            with open("./topic_modeling/topic_modeling_embeddings/_mean_embeddings_bert", mode="wb") as file_handle:
                 _pickle.dump(data['embedding'], file_handle)
 
         else:
@@ -567,13 +567,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
         MONGO.access_collection('parameter_configurations')
 
         # performing the search on the parameter grid
-        hyperparameter_tuning.perform_grid_search(data_base=MONGO)
-        # run the top 5 configurations on the test set
-        optimal_configurations = hyperparameter_tuning.run_on_test_set(
-            top_n=5,
-            optimize_for=['outliers'],
-            data_base=MONGO
-        )
+        hyperparameter_tuning.perform_grid_search(data_base=MONGO, embedding_type=embeddings)
 
     if len(optimal_configurations) > 0:
         for component in pipeline:
@@ -592,7 +586,7 @@ def model_topics(data, embeddings, cluster_algorithm, normalization, dim_reducti
             data['PC1'] = [item[0] for item in data_reduced]
             data['PC2'] = [item[1] for item in data_reduced]
 
-    if outliers and data_reduced:
+    if outliers and len(data_reduced) != 0:
         # Remove a certain percentage of outliers. Show the number of outliers.
         outlier_scores = LocalOutlierFactor(contamination=outliers).fit_predict(data_reduced)
         cluster_ids = cluster_ids[outlier_scores == 1]
