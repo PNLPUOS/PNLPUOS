@@ -1,8 +1,9 @@
 import xml.etree.ElementTree as ET
+
 import pandas as pd
-#from somajo.tokenizer import Tokenizer # A tokenizer and sentence splitter for German and English web and social media texts
-from nltk import tokenize
+# from somajo.tokenizer import Tokenizer # A tokenizer and sentence splitter for German and English web and social media texts
 from nltk import TweetTokenizer
+from src.utilities import preprocessing
 
 def read_corpus(filename, corpus, n):
     """
@@ -67,6 +68,18 @@ def read_corpus(filename, corpus, n):
         print("text :", docs[:5])
         print("senti :", sentiments[:5])
 
+    elif corpus == 'airline':
+        data = pd.read_csv(filename)
+        print(data.head())
+        docs = data['text'].tolist()
+        sentiments = data['airline_sentiment']
+
+        print("text :", docs[:5])
+        print("sentiment :", sentiments[:5])
+
+
+
+
     return preprocess(docs, sentiments, n)
 
 
@@ -80,7 +93,6 @@ def preprocess(docs, sentiments, n):
     """
     processed_tweets = list()
     processed_sentiments = list()
-    tok = TweetTokenizer()
 
 
     for i, doc in enumerate(docs):
@@ -88,15 +100,10 @@ def preprocess(docs, sentiments, n):
             return processed_tweets, processed_sentiments
 
         if not pd.isna(sentiments[i]):
-            #print(doc)
-            #print(type(doc))
-            #tokens = list(filter(lambda a: not a.startswith('<br' or '@' or 'http'), tok.tokenize(doc))) #tokenize and filter out <br>
-            tokens = tok.tokenize(doc)
-            tweet_new = ' '.join(tokens)
-            processed_tweets.append(tweet_new)
+            processed_tweets.append(doc)
             processed_sentiments.append(str(sentiments[i]))
 
-
+    processed_tweets = preprocessing(pd.Series(processed_tweets), punctuation=False, correct_apos=True, shortWords=True, specialCharacter=False, singleChar=True).tolist()
 
 
     return processed_tweets, processed_sentiments
