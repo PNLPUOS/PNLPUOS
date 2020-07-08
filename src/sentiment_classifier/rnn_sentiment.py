@@ -15,7 +15,7 @@ import pickle
 import pandas as pd
 from nltk import tokenize, TweetTokenizer
 
-from src.sentiment_classifier.preprocess_corpus import read_corpus
+from sentiment_classifier.preprocess_corpus import read_corpus
 
 EMBED_DIM = 52  # dimension of embedding matrix
 MAX_FEATURES = 20000  # maximum number of words in the vocabulary, will take the 5000 most common words in training data
@@ -152,31 +152,31 @@ def get_embeddings(vocab, filename):
     return get_embedding_matrix(w2v_model.wv, vocab)
 
 
-def predict_sentiment(docs, out_path, tokenizer=None, model=None, voc=None, load=False):
+def predict_sentiment(docs, out_path=None, tokenizer=None, model=None, voc=None, load=False):
     if load and isinstance(load, str):
         print("Loading model {}".format(load))
         try:
-            model = load_model("data/{}_trained_model.h5".format(load))
-            tokenizer = pickle.load(open('data/{}_trained_tokenizer.pickle'.format(load), 'rb'))
+            model = load_model("sentiment_classifier/data/{}_trained_model.h5".format(load))
+            tokenizer = pickle.load(open('sentiment_classifier/data/{}_trained_tokenizer.pickle'.format(load), 'rb'))
         except FileNotFoundError:
             print('Requested model could not be found and loaded.')
     if not tokenizer:
         try:
             print("Loading pre-existing tokenizer")
-            with open('data/sentiment_tokenizer_trained.pickle', 'rb') as handle:
+            with open('sentiment_classifier/data/sentiment_tokenizer_trained.pickle', 'rb') as handle:
                 tokenizer = pickle.load(handle)
         except FileNotFoundError:
             print("No tokenizer could be found. ")
     if not model:
         try:
             print("Loading sentiment analysis model...")
-            model = load_model('data/sentiment_model_trained.h5')
+            model = load_model('sentiment_classifier/data/sentiment_model_trained.h5')
         except FileNotFoundError:
             print("No model could be found.")
     if not voc:
         try:
             #print("Loading pre-existing tf-idf vectorizer")
-            with open('data/sentiment_tf_idf_vocab.pickle', 'rb') as handle:
+            with open('sentiment_classifier/data/sentiment_tf_idf_vocab.pickle', 'rb') as handle:
                 voc = pickle.load(handle)
         except FileNotFoundError:
             pass
@@ -191,7 +191,8 @@ def predict_sentiment(docs, out_path, tokenizer=None, model=None, voc=None, load
         sentiment.append(pred.tolist().index(max(pred)) - 1)
     docs = docs.to_frame()
     docs['labels'] = sentiment
-    docs.to_csv(out_path, index=None)
+    # docs.to_csv(out_path, index=None)
+    return docs['labels']
 
 
 

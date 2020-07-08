@@ -1,7 +1,7 @@
 # pnlp
 from topic_modeling.topic_modeling import model_topics
 from utilities import preprocessing, evaluation
-from sentiment_classifier import *
+from sentiment_classifier.rnn_sentiment import predict_sentiment
 from credentials import username, password
 
 # sacred, misc
@@ -49,7 +49,11 @@ def config():
             'run_grid_search': False
 
     }
-    sentiment = False
+    sentiment_param = {
+
+            'load': 'question1'
+
+    }
     evaluation_param = {
 
             'keywords': 'frequency',
@@ -62,11 +66,11 @@ def config():
 
 # Sacred will run the main loop from the terminal.
 @ex.automain
-def run(experimenter, data_path, data_language, preprocessing_param, topic_model_param, evaluation_param, sentiment):
+def run(experimenter, data_path, data_language, preprocessing_param, topic_model_param, evaluation_param, sentiment_param):
     # Load raw data.
-    series = pd.read_csv(data_path, delimiter=';')['Comments']
+    series = pd.read_csv(data_path, delimiter=';')#['Comments']
     # Extract first or second question only.
-    # series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
+    series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
     # series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
     # Preprocessing.
     data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
@@ -74,8 +78,8 @@ def run(experimenter, data_path, data_language, preprocessing_param, topic_model
     data['comment_raw'] = series
     # Topic modeling.
     data = model_topics(data, **topic_model_param)
-    # TODO: Append sentiment information.
-    # data['sentiment'] = get_sentiment(data['comment_raw'])
+    # Append sentiment information.
+    data['sentiment'] = predict_sentiment(data['comment_raw'], **sentiment_param)
     # Evaluate the results.
     data_path, clusters_path, graph_path = evaluation(data, **evaluation_param)
     # Log information to sacred.

@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 # from somajo.tokenizer import Tokenizer # A tokenizer and sentence splitter for German and English web and social media texts
 from nltk import TweetTokenizer
-from src.utilities import preprocessing
+from utilities import preprocessing
 
 def read_corpus(filename, corpus, n):
     """
