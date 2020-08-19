@@ -41,7 +41,7 @@ def config():
     }
     topic_model_param = {
 
-            'embeddings': 'fasttext',
+            'embeddings': 'bert',
             'cluster_algorithm': 'hdbscan',
             'normalization': True,
             'dim_reduction': True,
@@ -68,14 +68,16 @@ def config():
 @ex.automain
 def run(experimenter, data_path, data_language, preprocessing_param, topic_model_param, evaluation_param, sentiment_param):
     # Load raw data.
-    series = pd.read_csv(data_path, delimiter=';')#['Comments']
-    # Extract first or second question only.
-    series = series[series['Question Text'] == 'Please tell us what is working well.']['Comments']
-    # series = series[series['Question Text'] == 'Please tell us what needs to be improved.']['Comments']
+    df_raw = pd.read_csv(data_path, delimiter=';')
+    # series = pd.read_csv(data_path, delimiter=';')['Comments']
+    series = df_raw['Comments']
     # Preprocessing.
     data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
     # Append raw comments needed for specific methods.
     data['comment_raw'] = series
+    # Add other original columns.
+    data['Report Grouping'] = df_raw['Report Grouping']
+    data['Question Text'] = df_raw['Question Text']
     # Topic modeling.
     data = model_topics(data, **topic_model_param)
     # Append sentiment information.

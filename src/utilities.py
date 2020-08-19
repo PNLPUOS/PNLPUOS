@@ -1,8 +1,8 @@
 # nltk
 import nltk
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('wordnet')
+# nltk.download('stopwords')
+# nltk.download('punkt')
+# nltk.download('wordnet')
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.tokenize import WhitespaceTokenizer
@@ -330,7 +330,7 @@ def build_embedding_space(data):
             Annoy nn tree.
     '''
     # Create the annoy embedding space.
-    num_dimensions = data['embedding'].tolist()[0].size
+    num_dimensions = 300
     # Get embeddings for each token in the corpus.
     model = fasttext.load_model('topic_modeling\\crawl-300d-2M-subword.bin')
     # Get embeddings for each word for each comment.
@@ -471,6 +471,7 @@ def get_label(keywords, labels, cluster_id, embedding_space, max_cluster):
                 continue
 
 
+
 def export_graph(data, graph_path):
     # Visualize the reduced data with the cluster IDs.
     ax = sns.lmplot(data=data, x='PC1', y='PC2', hue='cluster',
@@ -503,14 +504,18 @@ def evaluation(data, keywords, labels, method_sentences, n_sentences):
     clusters_path = f'{output_path}\\clusters.csv'
     graph_path = f'{output_path}\\graph.png'
 
-    embedding_space = build_embedding_space(data)
+    try:
+        embedding_space = build_embedding_space(data)
+    except IndexError:
+        print('Cannot generate topic labels. Switching to top-5 tokens.')
+        labels = 'top_5_words'
     data.to_csv(data_path)
     cluster_info = []
     max_cluster = max(list(data['cluster'].unique()))
     for cluster_id in sorted(list(data['cluster'].unique())):
         cluster_dict = {'cluster': cluster_id}
         cluster_dict['keywords'] = get_keywords(data, keywords, cluster_id)
-        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, embedding_space, max_cluster)
+        cluster_dict['label'] = get_label(cluster_dict['keywords'], labels, cluster_id, max_cluster)
         cluster_dict['sentences'] = get_sentences(data, cluster_id, method_sentences, n_sentences)
         cluster_info.append(cluster_dict)
 
