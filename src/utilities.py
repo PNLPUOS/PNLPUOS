@@ -9,7 +9,7 @@ from nltk.tokenize import WhitespaceTokenizer
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
 #from porter2stemmer import Porter2Stemmer
-import src.spell_correction.spellcorrector as spellcorrector
+import src.spell_correction.transspell as transspell
 
 # html
 from bs4 import BeautifulSoup
@@ -228,8 +228,8 @@ def word_stemmer(surveyText):
     return [stemmer.stem(i) for i in surveyText]
 
 def fix_spelling(surveyText):
-    sc = spellcorrector.SpellCorrector()
-    return sc.correct_errors(surveyText)
+    ts = transspell.TransSpell()
+    return ts.correct_errors(surveyText)
 
 
 '''
