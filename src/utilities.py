@@ -9,7 +9,7 @@ from nltk.tokenize import WhitespaceTokenizer
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
 #from porter2stemmer import Porter2Stemmer
-import spell_correction.spellcorrector as spellcorrector
+import src.spell_correction.spellcorrector as spellcorrector
 
 # html
 from bs4 import BeautifulSoup
@@ -27,7 +27,7 @@ import seaborn as sns
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 from datetime import datetime
-import fasttext
+# import fasttext
 import annoy
 import os
 import re

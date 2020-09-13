@@ -1,9 +1,6 @@
 import xml.etree.ElementTree as ET
-
 import pandas as pd
-# from somajo.tokenizer import Tokenizer # A tokenizer and sentence splitter for German and English web and social media texts
-from nltk import TweetTokenizer
-from utilities import preprocessing
+from src.utilities import preprocessing
 
 def read_corpus(filename, corpus, n):
     """
@@ -107,3 +104,14 @@ def preprocess(docs, sentiments, n):
 
 
     return processed_tweets, processed_sentiments
+
+def read_wordlist():
+    """
+    Reads sentiment lexicon from file and returns it as dataframe
+    """
+    wordlist = pd.read_table('Data/SentiWords_1.1.txt', skiprows=30)
+    wordlist.columns = ['word', 'sentiment_score']
+    wordlist['word'] = wordlist['word'].str.split('#').apply(lambda x: x[0])
+
+    return wordlist
+
