@@ -1,8 +1,13 @@
-# pnlp_study_project
-Practical NLP for Survey Analysis with deepsight GmbH.
+# Practical NLP Study Project
+Practical NLP for Survey Analysis with deepsight GmbH at Universität Osnabrück.
+
+### Overview
+
+This repository hosts the code for the study project 'Practical NLP', an interdisciplinary study project at Osnabrück University held during WS2019-SS2020. The project implements a topic analysis pipeline including data cleaning, sentiment analysis, and document clustering, optimized to employee survey data. For further information on the project scope, individual modules, and methods employed, please refer to the online [documentation](https://pnlpuos.github.io/). 
+
 ***
 
-## Project Structure
+### Project Structure
 
 <pre>
 |-- data
@@ -15,35 +20,51 @@ Practical NLP for Survey Analysis with deepsight GmbH.
     |-- topic_modeling
     |-- outputs
 </pre>
+
+
 ***
+
+### Installation
+
+1. Clone the repository.
+
+<pre>$ git clone https://github.com/PNLPUOS/PNLPUOS.git</pre>
+
+2. Install PyTorch from [source](https://pytorch.org/). The package is tested on Python==3.7.4 with pytorch==1.6.0. Please ensure that your Python installation matches your system (32 or 64bit).
+3. Navigate to the cloned directory and install with pip. Ensure your environment has Cython installed.
+
+<pre>$ pip install .</pre>
+
+3. Note: OS X users require a compiler with good C++11 support per the [FastText documentation](https://fasttext.cc/docs/en/support.html). Information on how to install one of the available compilers can be found [here](https://www.ics.uci.edu/~pattis/common/handouts/macclion/clang.html).
+4. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'pnlp' directory.
 
 ### Usage
-1. Clone the repository.
-2. Navigate to the repository directory.
-3. Install dependencies. (pip install -r requirements.txt) Note: OS X users require a compiler with good C++11 support per the [FastText documentation](https://fasttext.cc/docs/en/support.html). Information on how to install one of the available compilers can be found [here](https://www.ics.uci.edu/~pattis/common/handouts/macclion/clang.html).
-4. Obtain dataset available on slack. Place in 'data' directory.
-5. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'src'.
-6. Navigate to src and test run the main script. (python main.py)
+
+4. Obtain a dataset for analysis. The pipeline is optimized to employee survey comments in .csv  (semicolon-delineated) conforming to the following format:
+
+| Report Grouping | Question Text     | Comment   |
+| --------------- | ----------------- | --------- |
+| Department 1    | Survey Question 1 | Comment 1 |
+| Department 2    | Survey Question 2 | Comment 2 |
+| ...             | ...               | ...       |
+| Department n    | Survey Question n | Comment n |
+
+If your data does not contain distinct questions or report grouping attributes, then do not include these columns in your dataset. The pipeline will then perform an attribute-agnostic analysis on the comments alone. Currently, the pipeline only supports analysis of English data.
+
+2. Run the main analysis pipeline on your dataset by passing the filepath as a command argument.
+
+<pre>$ python -m pnlp --path yourfilepath</pre>
+
+This command will run a default analysis pipeline, outputting several log files and summary analytics including visualization of identified document clusters and sentiment labels. 
+
 ***
 
-### Experiment Logging
-To access the full capabilities of the script you should integrate the sacred experiment with the MongoDB Atlas cluster prepared for this project. Sacred is an experiment logging toolkit which easily integrates into scripts and records configurations, results, files, etc. You can find more information on Sacred [here](https://sacred.readthedocs.io/en/stable/).
+### Optional Arguments
 
-First, provide your email to the MongoDB Atlas cluster owner. You will receive an invite to register and gain access to the project.
+You may pass several optional arguments to override the default pipeline configuration. To view these arguments please consult the output of the following command.
 
-Next, adjust the credentials.py file in the src directory by adding the username and password you used to register for MongoDB Atlas. You should now be able to test that your experiment logs to the database by uncommenting the experiment observer in main.py. If the script runs without problems you have successfully logged the experiment.
+<pre>$ python -m pnlp --help</pre>
+
 ***
 
-### Viewing Experiment Results
-To view experiment results logged to the database you must install Omniboard. Omniboard is a browser based application optimized for viewing experiments logged via sacred and MongoDB.
 
-Omniboard requires node.js. First, install node.js [here](https://nodejs.org/en/download/ ).
-
-Next, use the terminal to install Omniboard. (npm install -g omniboard).
-Run Omniboard (npx omniboard –mu url) You must replace 'url' with the database server url. The easiest way to obtain this is to run the main.py and copy-paste the output url into the terminal. If you receive no errors Omniboard should be running.
-
-To view the board and interact with the results, navigate to localhost:9000 in your browser. From Omniboard you can adjust the shown columns and other settings via the options menu at the top right of the dashboard.
-
-![Image unavailable.](https://raw.githubusercontent.com/vivekratnavel/omniboard/master/docs/assets/screenshots/table.png)
-
-Further information on setting up Omniboard can be found [here](https://vivekratnavel.github.io/omniboard/#/quick-start).

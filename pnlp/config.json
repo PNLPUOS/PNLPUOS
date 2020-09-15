@@ -1,0 +1,38 @@
+{
+    "mongodb": {
+        "url": "",
+        "db_name": "",
+        "username": ""
+    },
+    "preprocessing": {
+        "punctuation": true,
+        "correct_spelling": false,
+        "tokenize": true,
+        "stopwords": true,
+        "correct_apos": true,
+        "shortWords": true,
+        "specialCharacter": true,
+        "numbers": true,
+        "singleChar": true,
+        "lematization": true,
+        "stemming": false,
+        "filter_extremes": true
+    },
+    "topic_model": {
+        "embeddings": "bert",
+        "cluster_algorithm": "hdbscan",
+        "normalization": true,
+        "dim_reduction": true,
+        "outliers": 0.15,
+        "run_grid_search": false
+    },
+    "sentiment": {
+        "load": "question1"
+    },
+    "evaluation": {
+        "keywords": "frequency",
+        "labels": "top_5_words",
+        "method_sentences": "embedding",
+        "n_sentences": 3
+    }
+}
