@@ -26,17 +26,18 @@ This repository hosts the code for the study project 'Practical NLP', an interdi
 
 ### Installation
 
-1. Clone the repository.
+1. Set up your virtual environment. Because the package requires several third-party dependencies and models, it is recommended that you instantiate a new virtual environment. Please also ensure that you have approx. 4GB of available drive space. Ensure your environment has Cython installed.
+2. Install PyTorch from [source](https://pytorch.org/). The package is tested on Python==3.7.4 with pytorch==1.6.0. Please ensure that your Python installation matches your system (32 or 64bit).
+3. Clone the repository.
 
 <pre>$ git clone https://github.com/PNLPUOS/PNLPUOS.git</pre>
 
-2. Install PyTorch from [source](https://pytorch.org/). The package is tested on Python==3.7.4 with pytorch==1.6.0. Please ensure that your Python installation matches your system (32 or 64bit).
-3. Navigate to the cloned directory and install with pip. Ensure your environment has Cython installed.
+1. Navigate to the cloned directory and install with pip. 
 
 <pre>$ pip install .</pre>
 
 3. Note: OS X users require a compiler with good C++11 support per the [FastText documentation](https://fasttext.cc/docs/en/support.html). Information on how to install one of the available compilers can be found [here](https://www.ics.uci.edu/~pattis/common/handouts/macclion/clang.html).
-4. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'pnlp' directory.
+4. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'pnlp' directory. This model is only required if you wish to use the non-default FastText embeddings for topic modeling and labeling.
 
 ### Usage
 
