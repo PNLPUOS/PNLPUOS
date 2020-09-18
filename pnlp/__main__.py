@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import pnlp
+import pnlp.src.spell_correction.transspell as transspell
 
 
 pnlp_path = os.path.dirname(pnlp.__file__)
@@ -129,17 +130,20 @@ def main(args=None):
         df_raw = pd.read_csv(data_path, delimiter=';')
         # Extract only the comments.
         series = df_raw['Comments']
+        # Perform spell correction if requested. Do here because of need to load model.
+        if preprocessing_param['correct_spelling'] == True:
+            print('Performing spell correction.')
+            ts = transspell.TransSpell()
+            series = series.apply(ts.correct_errors)
         # Preprocessing.
         data = preprocessing(series, **preprocessing_param).to_frame().rename(columns={"Comments": "comment_clean"})
         # Append raw comments needed for specific methods.
         data['comment_raw'] = series
-
         # Ignore other columns if not provided.
         if ('Report Grouping' and 'Question Text') in df_raw.columns:
             # Add other original columns.
             data['Report Grouping'] = df_raw['Report Grouping']
             data['Question Text'] = df_raw['Question Text']
-
         # Topic modeling.
         data = model_topics(data, **topic_model_param)
         # Append sentiment information.
@@ -149,7 +153,6 @@ def main(args=None):
         # TODO: Log information to sacred.
         # ex.log_scalar('n_clusters', data['cluster'].nunique())
         # ex.add_artifact(clusters_path)
-
         print('Analysis complete.')
         print('Please check the outputs directory or visit omniboard to view the experiment results.')
 

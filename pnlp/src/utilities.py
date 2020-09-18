@@ -9,7 +9,7 @@ from nltk.tokenize import WhitespaceTokenizer
 from nltk.stem import WordNetLemmatizer
 from nltk.stem.porter import PorterStemmer
 #from porter2stemmer import Porter2Stemmer
-import pnlp.src.spell_correction.spellcorrector as spellcorrector
+# import pnlp.src.spell_correction.spellcorrector as spellcorrector
 
 # html
 from bs4 import BeautifulSoup
@@ -274,8 +274,8 @@ def preprocessing(txt, punctuation= False, correct_spelling=False, tokenize= Fal
     if punctuation:
         cleanedTxt = cleanedTxt.apply(lambda x:remove_punctuation(x))
 
-    if correct_spelling:
-        cleaned_Txt = cleanedTxt.apply(lambda x: fix_spelling(x))
+    # if correct_spelling:
+        # cleaned_Txt = cleanedTxt.apply(lambda x: fix_spelling(x))
 
     if tokenize:
         cleanedTxt = cleanedTxt.apply(lambda x:word_tokenize(x.lower()))

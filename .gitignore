@@ -21,3 +21,4 @@ src/topic_modeling/__pycache__/
 src/topic_modeling/topic_modeling_embeddings/
 src/topic_modeling/topic_modeling_utils/__pycache__/
 src/outputs
+.vscode
