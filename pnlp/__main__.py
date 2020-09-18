@@ -91,7 +91,7 @@ def main(args=None):
     data_path = vars(args)["path"]
     # Override default arguments if provided.
     if vars(args)["preprocessing"]:
-        for item in preprocessing:
+        for item in vars(args)["preprocessing"]:
             preprocessing_param[item] = True
     if vars(args)["embeddings"]:
         topic_model_param['embeddings'] = vars(args)["embeddings"]
