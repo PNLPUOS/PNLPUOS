@@ -1,4 +1,7 @@
+
+
 # Practical NLP Study Project
+
 Practical NLP for Survey Analysis with deepsight GmbH at Universität Osnabrück.
 
 ### Overview
@@ -57,6 +60,48 @@ If your data does not contain distinct questions or report grouping attributes, 
 <pre>$ python -m pnlp --path yourfilepath</pre>
 
 This command will run a default analysis pipeline, outputting several log files and summary analytics including visualization of identified document clusters and sentiment labels.
+
+#### Module-Specific Functions
+
+You may run module-specific functions independently by calling them from their respective modules. Some examples are provided below.
+
+**Transformer-Based Contextual Spell Correction**
+
+```python
+from pnlp.src.spell_correction import transspell
+
+ts = transspell.TransSpell()
+sentence = 'This sentnce contains an error.'
+print(ts.correct_errors(sentence))
+>>> This sentence contains an error.
+```
+
+**Sentiment Prediction**
+
+```python
+from pnlp.src.sentiment_classifier.rnn_sentiment import predict_sentiment
+import pandas as pd
+
+docs = pd.Series(['I love this.', 'I do not care.'])
+predictions = predict_sentiment(docs, load='question1')
+print(predictions.values)
+>>> [1 0] # positive, neutral
+```
+
+**Preprocessing**
+
+```python
+from pnlp.src.utilities import preprocessing
+import pandas as pd
+
+docs = ['This is a document with several stopwords.',
+        'This!!.; is a document,,, with lots'' of && punctuation!?']
+docs = pd.Series(docs)
+docs = preprocessing(docs, tokenize=True, stopwords=True, punctuation=True)
+print(docs.values)
+>>> [list(['document', 'several', 'stopwords'])
+     list(['document', 'lots', 'punctuation'])]
+```
 
 ***
 
