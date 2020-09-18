@@ -3,7 +3,7 @@ Practical NLP for Survey Analysis with deepsight GmbH at Universität Osnabrück
 
 ### Overview
 
-This repository hosts the code for the study project 'Practical NLP', an interdisciplinary study project at Osnabrück University held during WS2019-SS2020. The project implements a topic analysis pipeline including data cleaning, sentiment analysis, and document clustering, optimized to employee survey data. For further information on the project scope, individual modules, and methods employed, please refer to the online [documentation](https://pnlpuos.github.io/). 
+This repository hosts the code for the study project 'Practical NLP', an interdisciplinary study project at Osnabrück University held during WS2019-SS2020. The project implements a topic analysis pipeline including data cleaning, sentiment analysis, and document clustering, optimized to employee survey data. For further information on the project scope, individual modules, and methods employed, please refer to the online [documentation](https://pnlpuos.github.io/).
 
 ***
 
@@ -32,18 +32,18 @@ This repository hosts the code for the study project 'Practical NLP', an interdi
 
 <pre>$ git clone https://github.com/PNLPUOS/PNLPUOS.git</pre>
 
-1. Navigate to the cloned directory and install with pip. 
+4. Navigate to the cloned directory and install with pip.
 
 <pre>$ pip install .</pre>
 
-3. Note: OS X users require a compiler with good C++11 support per the [FastText documentation](https://fasttext.cc/docs/en/support.html). Information on how to install one of the available compilers can be found [here](https://www.ics.uci.edu/~pattis/common/handouts/macclion/clang.html).
-4. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'pnlp' directory. This model is only required if you wish to use the non-default FastText embeddings for topic modeling and labeling.
+5. Note: OS X users require a compiler with good C++11 support per the [FastText documentation](https://fasttext.cc/docs/en/support.html). Information on how to install one of the available compilers can be found [here](https://www.ics.uci.edu/~pattis/common/handouts/macclion/clang.html).
+6. Obtain fasttext English model [here](https://fasttext.cc/docs/en/english-vectors.html). Place ‘common-crawl-300d-2M-subword’ in 'pnlp' directory. This model is only required if you wish to use the non-default FastText embeddings for topic modeling and labeling.
 
 ### Usage
 
-4. Obtain a dataset for analysis. The pipeline is optimized to employee survey comments in .csv  (semicolon-delineated) conforming to the following format:
+1. Obtain a dataset for analysis. The pipeline is optimized to employee survey comments in .csv  (semicolon-delineated) conforming to the following format:
 
-| Report Grouping | Question Text     | Comment   |
+| Report Grouping | Question Text     | Comments   |
 | --------------- | ----------------- | --------- |
 | Department 1    | Survey Question 1 | Comment 1 |
 | Department 2    | Survey Question 2 | Comment 2 |
@@ -56,7 +56,7 @@ If your data does not contain distinct questions or report grouping attributes, 
 
 <pre>$ python -m pnlp --path yourfilepath</pre>
 
-This command will run a default analysis pipeline, outputting several log files and summary analytics including visualization of identified document clusters and sentiment labels. 
+This command will run a default analysis pipeline, outputting several log files and summary analytics including visualization of identified document clusters and sentiment labels.
 
 ***
 
