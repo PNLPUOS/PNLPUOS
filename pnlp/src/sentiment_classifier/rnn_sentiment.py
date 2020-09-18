@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import pickle
 import pandas as pd
+import os
 
 from pnlp.src.sentiment_classifier.preprocess_corpus import read_corpus
 from pnlp.src.sentiment_classifier.preprocess_corpus import read_wordlist
