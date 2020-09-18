@@ -56,7 +56,7 @@ def main(args=None):
                                 \n\t stemming (stem comments)\
                                 \n\t filter_extremes (remove tokens above and below a certain frequency)\n \
                                 \n\nIncluding a parameter means that the processing will be performed. If no \
-                                parameters are supplied the default will set all values to True', type=list)
+                                parameters are supplied the default will set all values to True', type=str, nargs="*")
     parser.add_argument('--embeddings', help='Specify as a string the pretrained embedding model to use for document \
                             clustering. Currently the pipeline only supports FastText and Bert models. The \
                             default is "bert"', type=str)
