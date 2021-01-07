@@ -32,7 +32,7 @@ setup(
         'nltk==3.4.5',
         'numpy==1.16.5',
         'hdbscan==0.8.26',
-        'lxml==4.4.1',
+        'lxml==4.6.2',
         'dnspython==1.16.0',
         'pyspellchecker==0.5.4',
         'annoy==1.16.3',
