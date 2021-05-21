@@ -38,7 +38,7 @@ setup(
         'annoy==1.16.3',
         'gensim==3.8.1',
         'keras==2.3.1',
-        'tensorflow==2.0.1',
+        'tensorflow==2.5.0',
         'transformers==3.1.0',
         'scipy==1.4.1',
         'pyenchant==3.1.1'
