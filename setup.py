@@ -30,7 +30,7 @@ setup(
         'fasttext==0.9.1',
         'beautifulsoup4==4.8.0',
         'nltk==3.4.5',
-        'numpy==1.16.5',
+        'numpy==1.22.0',
         'hdbscan==0.8.26',
         'lxml==4.4.1',
         'dnspython==1.16.0',
